@@ -202,11 +202,31 @@ function InboxPageInner() {
 
       const { data } = await supabase
         .from("whatsapp_config")
-        .select("status")
+        .select("status, provider, baileys_status")
         .eq("account_id", accountId)
         .maybeSingle();
 
-      setWhatsappConnected(data?.status === "connected");
+      const isConnected =
+        data?.status === "connected" || data?.baileys_status === "connected";
+
+      if (isConnected) {
+        setWhatsappConnected(true);
+      } else {
+        // Fallback: check live Baileys status route which also auto-syncs the DB
+        try {
+          const res = await fetch("/api/whatsapp/baileys/status", { cache: "no-store" });
+          if (res.ok) {
+            const statusData = await res.json();
+            if (statusData.status === "connected") {
+              setWhatsappConnected(true);
+              return;
+            }
+          }
+        } catch {
+          // ignore network error
+        }
+        setWhatsappConnected(false);
+      }
     };
 
     checkConnection();

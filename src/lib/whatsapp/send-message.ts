@@ -270,7 +270,9 @@ export async function sendMessageToConversation(
     );
   }
 
-  const isBaileys = config.provider === 'baileys';
+  const isBaileys =
+    config.provider === 'baileys' ||
+    (!config.phone_number_id && (config.baileys_status === 'connected' || !!config.baileys_phone));
   const accessToken = !isBaileys && config.access_token ? decrypt(config.access_token) : '';
 
   // Self-heal legacy CBC ciphertexts. Fire-and-forget; idempotent.

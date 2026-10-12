@@ -126,7 +126,7 @@ export async function GET() {
 
     const { data: config, error: configError } = await supabase
       .from('whatsapp_config')
-      .select('phone_number_id, waba_id, access_token, status, provider')
+      .select('phone_number_id, waba_id, access_token, status, provider, baileys_status, baileys_phone, baileys_jid')
       .eq('account_id', accountId)
       .maybeSingle()
 
@@ -149,7 +149,22 @@ export async function GET() {
       )
     }
 
-    // If no access token is set (e.g. Baileys provider or fresh config),
+    // If provider is Baileys, evaluate connection status from Baileys state
+    if (config.provider === 'baileys') {
+      const isConnected =
+        config.baileys_status === 'connected' || config.status === 'connected';
+      return NextResponse.json(
+        {
+          connected: isConnected,
+          provider: 'baileys',
+          phone: config.baileys_phone || null,
+          jid: config.baileys_jid || null,
+        },
+        { status: 200 }
+      );
+    }
+
+    // If no access token is set (e.g. fresh Meta config),
     // report disconnected without treating it as corruption.
     if (!config.access_token) {
       return NextResponse.json(

@@ -29,17 +29,26 @@ export async function POST(req: Request) {
   if (event === 'connection_update') {
     const { status, phone, jid } = data || {};
     // Find the config with provider = 'baileys' or fallback to the single config
-    const { data: configs } = await db
+    let { data: configs } = await db
       .from('whatsapp_config')
       .select('id, account_id')
       .eq('provider', 'baileys')
       .limit(1);
+
+    if (!configs || configs.length === 0) {
+      const { data: fallbackConfigs } = await db
+        .from('whatsapp_config')
+        .select('id, account_id')
+        .limit(1);
+      configs = fallbackConfigs;
+    }
 
     const configId = configs?.[0]?.id;
     if (configId) {
       await db
         .from('whatsapp_config')
         .update({
+          provider: 'baileys',
           baileys_status: status,
           baileys_phone: phone ?? null,
           baileys_jid: jid ?? null,
@@ -61,11 +70,19 @@ export async function POST(req: Request) {
     const { id: messageId, fromMe, senderPhone, type, text, timestamp } = msg;
 
     // Find the active account for Baileys
-    const { data: configs } = await db
+    let { data: configs } = await db
       .from('whatsapp_config')
       .select('id, account_id, user_id')
       .eq('provider', 'baileys')
       .limit(1);
+
+    if (!configs || configs.length === 0) {
+      const { data: fallbackConfigs } = await db
+        .from('whatsapp_config')
+        .select('id, account_id, user_id')
+        .limit(1);
+      configs = fallbackConfigs;
+    }
 
     if (!configs || configs.length === 0) {
       return NextResponse.json({ ok: true, notice: 'No Baileys account configured' });

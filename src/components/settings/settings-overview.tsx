@@ -123,15 +123,21 @@ export function SettingsOverview({
       const [row, health] = await Promise.allSettled([
         supabase
           .from('whatsapp_config')
-          .select('phone_number_id')
+          .select('phone_number_id, provider, baileys_phone, status, baileys_status')
           .eq('account_id', acctId)
           .maybeSingle(),
         fetch('/api/whatsapp/config', { cache: 'no-store' }).then((r) => r.json()),
       ]);
       if (cancelled) return;
+      const configData = row.status === 'fulfilled' ? row.value.data : null;
+      const isBaileys = configData?.provider === 'baileys';
       setWhatsapp({
-        configured: row.status === 'fulfilled' && !!row.value.data?.phone_number_id,
-        connected: health.status === 'fulfilled' && !!health.value?.connected,
+        configured: isBaileys
+          ? !!configData?.baileys_phone || !!configData?.provider
+          : !!configData?.phone_number_id,
+        connected: isBaileys
+          ? configData?.baileys_status === 'connected' || configData?.status === 'connected'
+          : health.status === 'fulfilled' && !!health.value?.connected,
       });
       setWhatsappLoading(false);
     })();
