@@ -51,6 +51,7 @@ function InboxPageInner() {
   const [whatsappConnected, setWhatsappConnected] = useState<boolean | null>(
     null
   );
+  const [whatsappProvider, setWhatsappProvider] = useState<'meta' | 'baileys'>('meta');
   /**
    * Bumped whenever we want children (ConversationList, MessageThread)
    * to refetch from the DB — used as a safety net against missed
@@ -206,6 +207,9 @@ function InboxPageInner() {
         .eq("account_id", accountId)
         .maybeSingle();
 
+      const activeProvider = (data?.provider as 'meta' | 'baileys') || (data?.baileys_status === 'connected' ? 'baileys' : 'meta');
+      setWhatsappProvider(activeProvider);
+
       const isConnected =
         data?.status === "connected" || data?.baileys_status === "connected";
 
@@ -219,6 +223,7 @@ function InboxPageInner() {
             const statusData = await res.json();
             if (statusData.status === "connected") {
               setWhatsappConnected(true);
+              setWhatsappProvider("baileys");
               return;
             }
           }
@@ -643,6 +648,7 @@ function InboxPageInner() {
             onRefresh={handleManualRefresh}
             contactPanelOpen={contactPanelOpen}
             onToggleContactPanel={handleToggleContactPanel}
+            isBaileys={whatsappProvider === 'baileys'}
           />
         </div>
 

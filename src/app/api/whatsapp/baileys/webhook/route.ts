@@ -67,19 +67,19 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: true });
     }
 
-    const { id: messageId, fromMe, senderPhone, type, text, timestamp } = msg;
+    const { id: messageId, fromMe, senderPhone, remoteJid, type, text, timestamp } = msg;
 
     // Find the active account for Baileys
     let { data: configs } = await db
       .from('whatsapp_config')
-      .select('id, account_id, user_id')
+      .select('id, account_id, user_id, baileys_phone')
       .eq('provider', 'baileys')
       .limit(1);
 
     if (!configs || configs.length === 0) {
       const { data: fallbackConfigs } = await db
         .from('whatsapp_config')
-        .select('id, account_id, user_id')
+        .select('id, account_id, user_id, baileys_phone')
         .limit(1);
       configs = fallbackConfigs;
     }
@@ -89,13 +89,34 @@ export async function POST(req: Request) {
     }
 
     const accountId = configs[0].account_id;
+    const connectedPhone = configs[0].baileys_phone?.replace(/[^0-9]/g, '') || '';
 
-    if (!senderPhone) {
-      return NextResponse.json({ ok: true });
+    // Remote JID format: e.g. "8801712345678@s.whatsapp.net" or "8801712345678:2@s.whatsapp.net"
+    const remotePhone = remoteJid && remoteJid.includes('@s.whatsapp.net')
+      ? remoteJid.split('@')[0].split(':')[0]
+      : null;
+
+    // The conversation contact is always the other party (who the chat is with):
+    // If fromMe is true, the message was sent to remotePhone.
+    // If fromMe is false, the message was received from senderPhone (or remotePhone).
+    const targetPhone = !fromMe
+      ? (senderPhone || remotePhone)
+      : (remotePhone || senderPhone);
+
+    if (!targetPhone) {
+      return NextResponse.json({ ok: true, notice: 'No target phone' });
     }
 
+    // Is this a self-chat test message (user messaging their own WhatsApp number)?
+    const cleanTargetDigits = targetPhone.replace(/[^0-9]/g, '');
+    const isSelfChat = !!connectedPhone && cleanTargetDigits === connectedPhone;
+
+    // If it's a self-chat test message, treat it as 'customer' so that it surfaces
+    // as an inbound message in the inbox and unlocks the thread
+    const senderType = isSelfChat ? 'customer' : (fromMe ? 'agent' : 'customer');
+
     // Format phone with leading '+'
-    const cleanPhone = senderPhone.startsWith('+') ? senderPhone : `+${senderPhone}`;
+    const cleanPhone = targetPhone.startsWith('+') ? targetPhone : `+${targetPhone}`;
 
     try {
       const resolved = await resolveConversationByPhone(db, accountId, cleanPhone);
@@ -120,7 +141,7 @@ export async function POST(req: Request) {
         .from('messages')
         .insert({
           conversation_id: conversationId,
-          sender_type: fromMe ? 'agent' : 'customer',
+          sender_type: senderType,
           content_type: contentType,
           content_text: text || '',
           message_id: messageId,
@@ -142,7 +163,7 @@ export async function POST(req: Request) {
           last_message_text: text || `[${contentType}]`,
           last_message_at: new Date().toISOString(),
           status: 'open',
-          ...(fromMe ? {} : { unread_count: 1 }),
+          ...(senderType === 'customer' ? { unread_count: 1 } : {}),
         })
         .eq('id', conversationId);
 
