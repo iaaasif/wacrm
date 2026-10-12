@@ -2,6 +2,7 @@ import express, { type Request, type Response, type NextFunction } from 'express
 import cors from 'cors';
 import dotenv from 'dotenv';
 import { BaileysManager } from './baileys-manager.js';
+import { getDashboardHtml } from './dashboard.js';
 
 dotenv.config();
 
@@ -36,6 +37,12 @@ function authenticate(req: Request, res: Response, next: NextFunction) {
 
   return res.status(401).json({ error: 'Unauthorized: invalid or missing gateway secret' });
 }
+
+// Live interactive Dashboard (public UI)
+app.get('/', (_req: Request, res: Response) => {
+  res.setHeader('Content-Type', 'text/html');
+  res.send(getDashboardHtml());
+});
 
 // Health check (public)
 app.get('/health', (_req: Request, res: Response) => {
