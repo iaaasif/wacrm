@@ -55,6 +55,7 @@ describe("formatCurrencyShort", () => {
   });
 
   it("uses the matching symbol for non-USD currencies", () => {
+    expect(formatCurrencyShort(1_000, "BDT")).toBe("৳1.0k");
     expect(formatCurrencyShort(1_000, "EUR")).toBe("€1.0k");
     expect(formatCurrencyShort(1_000, "INR")).toBe("₹1.0k");
   });

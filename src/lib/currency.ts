@@ -27,27 +27,33 @@ export interface CurrencyOption {
 const t = getT("Currency");
 
 /**
- * The currencies offered in pickers. Codes must be valid ISO-4217 so
- * `Intl.NumberFormat` renders the right symbol/grouping. Extend this
- * list to offer more — nothing else needs to change.
+/**
+ * The currencies offered in pickers.
  */
 export const CURRENCIES: CurrencyOption[] = [
+  { code: "BDT", label: t("BDT"), symbol: "৳" },
   { code: "USD", label: t("USD"), symbol: "$" },
-  { code: "EUR", label: t("EUR"), symbol: "€" },
-  { code: "GBP", label: t("GBP"), symbol: "£" },
-  { code: "INR", label: t("INR"), symbol: "₹" },
-  { code: "AUD", label: t("AUD"), symbol: "A$" },
-  { code: "CAD", label: t("CAD"), symbol: "C$" },
-  { code: "BRL", label: t("BRL"), symbol: "R$" },
-  { code: "JPY", label: t("JPY"), symbol: "¥" },
-  { code: "CNY", label: t("CNY"), symbol: "¥" },
-  { code: "AED", label: t("AED"), symbol: "د.إ" },
-  { code: "ZAR", label: t("ZAR"), symbol: "R" },
-  { code: "NGN", label: t("NGN"), symbol: "₦" },
-  { code: "SGD", label: t("SGD"), symbol: "S$" },
-  { code: "MXN", label: t("MXN"), symbol: "$" },
-  { code: "COP", label: t("COP"), symbol: "$" },
 ];
+
+/** Fallback symbol lookup for legacy or non-picker currencies */
+const KNOWN_SYMBOLS: Record<string, string> = {
+  BDT: "৳",
+  USD: "$",
+  EUR: "€",
+  GBP: "£",
+  INR: "₹",
+  AUD: "A$",
+  CAD: "C$",
+  BRL: "R$",
+  JPY: "¥",
+  CNY: "¥",
+  AED: "د.إ",
+  ZAR: "R",
+  NGN: "₦",
+  SGD: "S$",
+  MXN: "$",
+  COP: "$",
+};
 
 /**
  * Format a deal value as a currency string. Whole-number output
@@ -87,14 +93,17 @@ export function formatCurrency(
 /**
  * Compact currency for tight spaces (donut center, legend rows):
  * "$1.2M" / "€34.5k" / "₹900". Uses the currency's symbol from
- * CURRENCIES, falling back to the code when we don't carry a symbol.
+ * CURRENCIES, falling back to KNOWN_SYMBOLS or the code when unknown.
  */
 export function formatCurrencyShort(
   value: number,
   currency: string = DEFAULT_CURRENCY,
 ): string {
   const code = currency || DEFAULT_CURRENCY;
-  const symbol = CURRENCIES.find((c) => c.code === code)?.symbol ?? `${code} `;
+  const symbol =
+    CURRENCIES.find((c) => c.code === code)?.symbol ??
+    KNOWN_SYMBOLS[code] ??
+    `${code} `;
   return `${symbol}${formatCompactNumber(value)}`;
 }
 

@@ -299,7 +299,13 @@ export function DealForm({
               <div className="grid gap-2">
                 <Label className="text-muted-foreground">{t("value")}</Label>
                 <div className="relative">
-                  <DollarSign className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                  {currency === "BDT" ? (
+                    <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-semibold text-muted-foreground">
+                      ৳
+                    </span>
+                  ) : (
+                    <DollarSign className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                  )}
                   <Input
                     type="number"
                     value={value}
@@ -321,6 +327,9 @@ export function DealForm({
                       {c.code}
                     </option>
                   ))}
+                  {currency && !CURRENCIES.some((c) => c.code === currency) && (
+                    <option value={currency}>{currency}</option>
+                  )}
                 </select>
               </div>
             </div>

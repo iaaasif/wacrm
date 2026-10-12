@@ -2210,6 +2210,7 @@
     "description": "Plantilla de CRM para WhatsApp que puedes alojar tú mismo."
   },
   "Currency": {
+    "BDT": "Taka bangladesí",
     "USD": "Dólar estadounidense",
     "EUR": "Euro",
     "GBP": "Libra esterlina",

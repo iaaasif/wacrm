@@ -2210,6 +2210,7 @@
     "description": "Self-hostable CRM template for WhatsApp."
   },
   "Currency": {
+    "BDT": "Bangladeshi Taka",
     "USD": "US Dollar",
     "EUR": "Euro",
     "GBP": "British Pound",

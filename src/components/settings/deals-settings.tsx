@@ -99,6 +99,9 @@ export function DealsSettings() {
                   {c.code} — {c.label}
                 </option>
               ))}
+              {selected && !CURRENCIES.some((c) => c.code === selected) && (
+                <option value={selected}>{selected}</option>
+              )}
             </select>
             {!canEditSettings && (
               <p className="text-xs text-muted-foreground">
