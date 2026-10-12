@@ -30,11 +30,8 @@
   "packageManager": "npm@10.9.9",
   "scripts": {
     "dev": "next dev",
-    "dev:baileys": "npm --prefix services/baileys run dev",
     "build": "next build",
-    "build:baileys": "npm --prefix services/baileys run build",
     "start": "next start",
-    "start:baileys": "npm --prefix services/baileys start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "format": "prettier --write .",

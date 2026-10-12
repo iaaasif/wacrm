@@ -1,0 +1,6 @@
+services/
+services/**
+.env*
+!.env.example
+*.md
+docs/
