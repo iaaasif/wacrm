@@ -1,5 +1,15 @@
 import { createTranslator } from 'next-intl';
-import activeMessages from '@app-messages';
+import enMessages from '../../../messages/en.json';
+import esMessages from '../../../messages/es.json';
+import koMessages from '../../../messages/ko.json';
+import ptMessages from '../../../messages/pt.json';
+
+const dictionaries: Record<string, Record<string, unknown>> = {
+  en: enMessages as Record<string, unknown>,
+  es: esMessages as Record<string, unknown>,
+  ko: koMessages as Record<string, unknown>,
+  pt: ptMessages as Record<string, unknown>,
+};
 
 /**
  * Translator for code that runs outside React — API route handlers,
@@ -17,7 +27,8 @@ type Catalogue = Record<string, unknown>;
 function loadCatalogue(): { locale: string; messages: Catalogue } {
   const env = process.env.NEXT_PUBLIC_APP_LOCALE ?? '';
   const locale = ['en', 'pt', 'es', 'ko'].includes(env) ? env : 'en';
-  return { locale, messages: activeMessages as Catalogue };
+  const messages = dictionaries[locale] || dictionaries.en;
+  return { locale, messages };
 }
 
 let cached: { locale: string; messages: Catalogue } | null = null;
