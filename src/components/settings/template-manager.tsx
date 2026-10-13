@@ -1240,19 +1240,22 @@ export function TemplateManager() {
 
       {/* Starter Templates Library Dialog */}
       <Dialog open={starterDialogOpen} onOpenChange={setStarterDialogOpen}>
-        <DialogContent className="sm:max-w-4xl w-[95vw] max-h-[88vh] flex flex-col p-0 overflow-hidden bg-popover border-border">
-          <DialogHeader className="px-6 py-4 border-b border-border bg-card/40 shrink-0 pr-12">
+        <DialogContent
+          className="sm:max-w-4xl w-[95vw] max-h-[88vh] flex flex-col p-0 overflow-hidden bg-popover border-border"
+          style={{ maxWidth: 'min(95vw, 56rem)', width: 'min(95vw, 56rem)' }}
+        >
+          <DialogHeader className="px-5 py-4 border-b border-border bg-card/40 shrink-0 pr-12">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-              <div className="flex items-center gap-3 min-w-0">
+              <div className="flex items-center gap-3 min-w-0 flex-1">
                 <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
                   <Sparkles className="size-5" />
                 </div>
-                <div className="min-w-0">
-                  <DialogTitle className="text-base sm:text-lg font-semibold text-foreground">
+                <div className="min-w-0 flex-1">
+                  <DialogTitle className="text-base sm:text-lg font-semibold text-foreground leading-snug">
                     Starter Message Templates Library
                   </DialogTitle>
-                  <DialogDescription className="text-xs text-muted-foreground mt-0.5 truncate">
-                    Ready-to-use, high-converting WhatsApp templates for Marketing &amp; Utility
+                  <DialogDescription className="text-xs text-muted-foreground mt-0.5 leading-normal">
+                    Pre-crafted, high-converting WhatsApp templates ready for Marketing &amp; Utility
                   </DialogDescription>
                 </div>
               </div>
@@ -1260,7 +1263,7 @@ export function TemplateManager() {
                 size="sm"
                 onClick={handleInstallAllStarters}
                 disabled={installingStarters}
-                className="shrink-0 font-medium"
+                className="shrink-0 font-medium whitespace-nowrap"
               >
                 {installingStarters ? (
                   <Loader2 className="mr-1.5 size-4 animate-spin" />
@@ -1273,7 +1276,7 @@ export function TemplateManager() {
           </DialogHeader>
 
           <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-6">
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {STARTER_TEMPLATES.map((tpl) => (
                 <div
                   key={tpl.name}
