@@ -54,14 +54,71 @@ export async function POST(req: Request) {
           baileys_phone: phone ?? null,
           baileys_jid: jid ?? null,
           baileys_connected_at: status === 'connected' ? new Date().toISOString() : null,
-          status: status === 'connected' ? 'connected' : 'disconnected',
-        })
-        .eq('id', configId);
+      status: status === 'connected' ? 'connected' : 'disconnected',
+    })
+    .eq('id', configId);
+}
+return NextResponse.json({ ok: true });
+}
+
+  // 2. Chats and Contacts Batch Sync (WhatsApp Web parity)
+  if (event === 'chats_sync' || event === 'contacts_sync') {
+    const items: Array<{
+      phone: string;
+      name?: string;
+      unreadCount?: number;
+      conversationTimestamp?: number;
+    }> = data?.chats || data?.contacts || [];
+
+    if (!items || items.length === 0) {
+      return NextResponse.json({ ok: true, count: 0 });
     }
-    return NextResponse.json({ ok: true });
+
+    let { data: configs } = await db
+      .from('whatsapp_config')
+      .select('id, account_id, user_id')
+      .eq('provider', 'baileys')
+      .limit(1);
+
+    if (!configs || configs.length === 0) {
+      const { data: fallback } = await db.from('whatsapp_config').select('id, account_id, user_id').limit(1);
+      configs = fallback;
+    }
+    const accountId = configs?.[0]?.account_id;
+    if (!accountId) return NextResponse.json({ ok: true, error: 'No account config' });
+
+    for (const item of items) {
+      const rawPhone = item.phone?.replace(/[^0-9]/g, '');
+      if (!rawPhone || rawPhone.length < 7) continue;
+      const cleanPhone = `+${rawPhone}`;
+
+      try {
+        const resolved = await resolveConversationByPhone(db, accountId, cleanPhone, item.name || null);
+        if (resolved.conversationId) {
+          const updates: Record<string, unknown> = {};
+          if (item.unreadCount && item.unreadCount > 0) {
+            updates.unread_count = item.unreadCount;
+          }
+          if (item.conversationTimestamp) {
+            const dateIso = new Date(item.conversationTimestamp * 1000).toISOString();
+            updates.last_message_at = dateIso;
+          }
+          if (Object.keys(updates).length > 0) {
+            await db
+              .from('conversations')
+              .update(updates)
+              .eq('id', resolved.conversationId);
+          }
+        }
+      } catch {
+        // Continue processing remaining contacts
+      }
+    }
+
+    return NextResponse.json({ ok: true, synced: items.length });
   }
 
-  // 2. Inbound Reaction
+  // 3. Inbound Reaction
   if (event === 'inbound_reaction') {
     const { targetMessageId, emoji, remotePhone, senderPhone, fromMe } = data || {};
     if (!targetMessageId) {

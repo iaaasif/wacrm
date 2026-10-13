@@ -13,7 +13,9 @@ import { useRealtime } from "@/hooks/use-realtime";
 import { ConversationList } from "@/components/inbox/conversation-list";
 import { MessageThread } from "@/components/inbox/message-thread";
 import { ContactSidebar } from "@/components/inbox/contact-sidebar";
-import { WifiOff } from "lucide-react";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { WifiOff, Loader2, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // Remembers the agent's show/hide choice for the desktop contact panel
@@ -172,69 +174,89 @@ function InboxPageInner() {
     }
   }, []);
 
-  // Check WhatsApp connection status on mount
-  useEffect(() => {
-    const checkConnection = async () => {
-      const supabase = createClient();
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      const user = session?.user;
+  // Check WhatsApp connection status
+  const checkConnection = useCallback(async () => {
+    const supabase = createClient();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    const user = session?.user;
 
-      if (!user) return;
+    if (!user) return;
 
-      // whatsapp_config is one-row-per-account post-multi-user, so
-      // the previous `.eq('user_id', user.id)` would miss the row
-      // for any teammate who didn't personally save the config —
-      // the "WhatsApp not connected" banner would show in the
-      // shared inbox even though the admin had it configured.
-      // Resolve account_id via the profile and query by that.
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("account_id")
-        .eq("user_id", user.id)
-        .maybeSingle();
-      const accountId = profile?.account_id as string | undefined;
-      if (!accountId) {
-        setWhatsappConnected(false);
-        return;
-      }
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("account_id")
+      .eq("user_id", user.id)
+      .maybeSingle();
+    const accountId = profile?.account_id as string | undefined;
+    if (!accountId) {
+      setWhatsappConnected(false);
+      return;
+    }
 
-      const { data } = await supabase
-        .from("whatsapp_config")
-        .select("status, provider, baileys_status")
-        .eq("account_id", accountId)
-        .maybeSingle();
+    const { data } = await supabase
+      .from("whatsapp_config")
+      .select("status, provider, baileys_status")
+      .eq("account_id", accountId)
+      .maybeSingle();
 
-      const activeProvider = (data?.provider as 'meta' | 'baileys') || (data?.baileys_status === 'connected' ? 'baileys' : 'meta');
-      setWhatsappProvider(activeProvider);
+    const activeProvider = (data?.provider as 'meta' | 'baileys') || (data?.baileys_status === 'connected' ? 'baileys' : 'meta');
+    setWhatsappProvider(activeProvider);
 
-      const isConnected =
-        data?.status === "connected" || data?.baileys_status === "connected";
+    const isConnected =
+      data?.status === "connected" || data?.baileys_status === "connected";
 
-      if (isConnected) {
-        setWhatsappConnected(true);
-      } else {
-        // Fallback: check live Baileys status route which also auto-syncs the DB
-        try {
-          const res = await fetch("/api/whatsapp/baileys/status", { cache: "no-store" });
-          if (res.ok) {
-            const statusData = await res.json();
-            if (statusData.status === "connected") {
-              setWhatsappConnected(true);
-              setWhatsappProvider("baileys");
-              return;
-            }
+    if (isConnected) {
+      setWhatsappConnected(true);
+    } else {
+      // Fallback: check live Baileys status route which also auto-syncs the DB
+      try {
+        const res = await fetch("/api/whatsapp/baileys/status", { cache: "no-store" });
+        if (res.ok) {
+          const statusData = await res.json();
+          if (statusData.status === "connected") {
+            setWhatsappConnected(true);
+            setWhatsappProvider("baileys");
+            return;
           }
-        } catch {
-          // ignore network error
         }
-        setWhatsappConnected(false);
+      } catch {
+        // ignore network error
       }
-    };
-
-    checkConnection();
+      setWhatsappConnected(false);
+    }
   }, []);
+
+  useEffect(() => {
+    checkConnection();
+
+    // Live subscription to whatsapp_config so connect/disconnect reflects in real-time
+    const supabase = createClient();
+    const channel = supabase
+      .channel("whatsapp_config_live_inbox")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "whatsapp_config",
+        },
+        (payload) => {
+          const row = payload.new as Record<string, unknown> | null;
+          if (row) {
+            const isConn = row.status === "connected" || row.baileys_status === "connected";
+            setWhatsappConnected(isConn);
+            if (row.provider) setWhatsappProvider(row.provider as 'meta' | 'baileys');
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [checkConnection]);
 
   // Handle realtime message events
   const handleMessageEvent = useCallback(
@@ -599,21 +621,54 @@ function InboxPageInner() {
   // conversation slides the thread in; the thread's back button pops
   // it back to the list. On lg+ both panes render side-by-side as
   // before, unchanged.
+  if (whatsappConnected === null) {
+    return (
+      <div className="flex h-full min-h-0 flex-1 items-center justify-center bg-background">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (whatsappConnected === false) {
+    return (
+      <div className="flex h-full min-h-0 flex-1 flex-col items-center justify-center bg-background p-6 text-center">
+        <div className="flex max-w-md flex-col items-center rounded-2xl border border-border bg-card p-8 shadow-sm">
+          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-amber-500/10 text-amber-500 mb-4">
+            <WifiOff className="h-8 w-8" />
+          </div>
+          <h2 className="text-xl font-semibold text-foreground">
+            WhatsApp Disconnected
+          </h2>
+          <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
+            WhatsApp কানেক্টেড নেই। WhatsApp Web-এর মতো আপনার ইনবক্সের সমস্ত কন্টাক্ট ও চ্যাট দেখতে অনুগ্রহ করে WhatsApp কানেক্ট করুন।
+          </p>
+          <div className="mt-6 flex flex-col sm:flex-row gap-3 w-full">
+            <Link href="/settings" className="flex-1">
+              <Button className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-medium">
+                Connect WhatsApp
+              </Button>
+            </Link>
+            <Button
+              variant="outline"
+              className="flex-1"
+              onClick={() => {
+                setWhatsappConnected(null);
+                checkConnection();
+              }}
+            >
+              <RefreshCw className="mr-2 h-4 w-4" />
+              Check Status
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   const hasActiveConv = !!activeConversation;
 
   return (
     <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
-      {/* WhatsApp connection banner — in the flex column, not absolute,
-          so it pushes the panels down instead of overlapping them. */}
-      {whatsappConnected === false && (
-        <div className="flex shrink-0 items-center justify-center gap-2 border-b border-amber-500/20 bg-amber-500/10 px-4 py-2">
-          <WifiOff className="h-4 w-4 text-amber-400" />
-          <p className="text-xs text-amber-400">
-            {t("whatsappNotConnected")}
-          </p>
-        </div>
-      )}
-
       <div className="flex flex-1 overflow-hidden">
         {/* Left panel: Conversation list.
             Hidden on mobile when a conversation is selected so the
