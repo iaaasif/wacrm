@@ -267,7 +267,7 @@ export function ContactSidebar({ contact }: ContactSidebarProps) {
               {tSidebar("notes")}
             </div>
             <div className="mt-2">
-              <div className="flex gap-2">
+              <div className="flex items-end gap-2">
                 <textarea
                   value={newNote}
                   onChange={(e) => setNewNote(e.target.value)}
@@ -277,7 +277,7 @@ export function ContactSidebar({ contact }: ContactSidebarProps) {
                 />
                 <Button
                   size="sm"
-                  className="h-9 w-9 shrink-0 self-end bg-primary p-0 hover:bg-primary/90"
+                  className="h-8 w-8 shrink-0 bg-primary p-0 hover:bg-primary/90"
                   onClick={handleAddNote}
                   disabled={!newNote.trim() || addingNote}
                   aria-label={tSidebar("addNotePlaceholder")}

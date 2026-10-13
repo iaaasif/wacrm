@@ -1101,10 +1101,12 @@ export function MessageThread({
             <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
           </div>
         ) : messages.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-12">
-            <p className="text-sm text-muted-foreground">{t("noMessagesYet")}</p>
-            <p className="text-xs text-muted-foreground">
-              {t("sendTemplateHint")}
+          <div className="flex flex-col items-center justify-center py-12 text-center">
+            <p className="text-sm font-medium text-muted-foreground">{t("noMessagesYet")}</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {isBaileys
+                ? "Type a message below to start chatting"
+                : t("sendTemplateHint")}
             </p>
           </div>
         ) : (

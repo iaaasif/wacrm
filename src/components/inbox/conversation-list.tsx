@@ -9,10 +9,11 @@ import {
 } from "@/lib/inbox/conversations";
 import { cn } from "@/lib/utils";
 import type { Conversation, ConversationStatus, Tag } from "@/types";
-import { Search, ChevronDown, X } from "lucide-react";
+import { Search, ChevronDown, X, Plus, Loader2 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { useTranslations } from "next-intl";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -20,7 +21,15 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { toast } from "sonner";
 
 interface ConversationListProps {
   activeConversationId: string | null;
@@ -89,6 +98,53 @@ export function ConversationList({
   const [tags, setTags] = useState<Tag[]>([]);
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
   const [selectedCompany, setSelectedCompany] = useState<string | null>(null);
+
+  // Start new conversation modal state
+  const [newChatOpen, setNewChatOpen] = useState(false);
+  const [newChatPhone, setNewChatPhone] = useState("");
+  const [newChatName, setNewChatName] = useState("");
+  const [startingChat, setStartingChat] = useState(false);
+
+  const handleStartNewChat = useCallback(
+    async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!newChatPhone.trim()) return;
+
+      setStartingChat(true);
+      try {
+        const res = await fetch("/api/whatsapp/conversations/open", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            phone: newChatPhone.trim(),
+            name: newChatName.trim() || undefined,
+          }),
+        });
+
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.error || "Failed to start conversation");
+        }
+
+        if (data.conversation) {
+          onSelect(data.conversation);
+          if (!conversations.some((c) => c.id === data.conversation.id)) {
+            onConversationsLoadedRef.current([data.conversation, ...conversations]);
+          }
+        }
+        setNewChatOpen(false);
+        setNewChatPhone("");
+        setNewChatName("");
+        toast.success("Conversation opened");
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : "Failed to open conversation";
+        toast.error(msg);
+      } finally {
+        setStartingChat(false);
+      }
+    },
+    [newChatPhone, newChatName, conversations, onSelect]
+  );
 
   // Keep the latest callback in a ref so the fetch effect below can
   // have a stable, empty-dep identity. Previously the fetch useCallback
@@ -243,14 +299,25 @@ export function ConversationList({
     <div className="flex h-full w-full flex-col border-r border-border bg-card lg:w-80">
       {/* Search + Filter */}
       <div className="space-y-2 border-b border-border p-3">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={search}
-            onChange={handleSearchChange}
-            placeholder={t("searchPlaceholder")}
-            className="border-border bg-muted pl-9 text-sm text-foreground placeholder-muted-foreground focus:border-primary/50"
-          />
+        <div className="flex items-center gap-1.5">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={search}
+              onChange={handleSearchChange}
+              placeholder={t("searchPlaceholder")}
+              className="border-border bg-muted pl-9 text-sm text-foreground placeholder-muted-foreground focus:border-primary/50"
+            />
+          </div>
+          <Button
+            size="sm"
+            onClick={() => setNewChatOpen(true)}
+            className="h-9 w-9 shrink-0 bg-primary p-0 hover:bg-primary/90"
+            title="Start new conversation"
+            aria-label="Start new conversation"
+          >
+            <Plus className="h-4 w-4" />
+          </Button>
         </div>
 
         <div className="flex flex-wrap items-center gap-1">
@@ -436,6 +503,64 @@ export function ConversationList({
           </div>
         )}
       </ScrollArea>
+
+      {/* Start New Conversation Dialog */}
+      <Dialog open={newChatOpen} onOpenChange={setNewChatOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Start New Conversation</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleStartNewChat} className="space-y-4 pt-2">
+            <div>
+              <label className="text-xs font-medium text-foreground">
+                Phone Number (WhatsApp) *
+              </label>
+              <Input
+                value={newChatPhone}
+                onChange={(e) => setNewChatPhone(e.target.value)}
+                placeholder="+8801700000000"
+                className="mt-1 border-border bg-muted text-sm text-foreground placeholder-muted-foreground focus:border-primary/50"
+                required
+                autoFocus
+              />
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                Enter number with country code (e.g. +880... or +1...)
+              </p>
+            </div>
+            <div>
+              <label className="text-xs font-medium text-foreground">
+                Contact Name (optional)
+              </label>
+              <Input
+                value={newChatName}
+                onChange={(e) => setNewChatName(e.target.value)}
+                placeholder="e.g. John Doe"
+                className="mt-1 border-border bg-muted text-sm text-foreground placeholder-muted-foreground focus:border-primary/50"
+              />
+            </div>
+            <DialogFooter className="pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setNewChatOpen(false)}
+                disabled={startingChat}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={!newChatPhone.trim() || startingChat}>
+                {startingChat ? (
+                  <>
+                    <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                    Opening...
+                  </>
+                ) : (
+                  "Open Chat"
+                )}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
