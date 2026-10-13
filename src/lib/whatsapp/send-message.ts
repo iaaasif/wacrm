@@ -451,6 +451,7 @@ export async function sendMessageToConversation(
       const res = await sendBaileysMessage({
         recipient: sendTarget,
         content: baileysContent,
+        quotedMessageId: contextMessageId,
       });
       waMessageId = res.messageId;
     } catch (err) {

@@ -10,8 +10,10 @@ import { latestUserMessage } from './query'
 import {
   engineSendText,
   loadAccountMetaCredentials,
+  loadAccountWhatsAppConfig,
 } from '@/lib/flows/meta-send'
 import { sendTypingIndicator } from '@/lib/whatsapp/meta-api'
+import { sendBaileysPresence } from '@/lib/whatsapp/baileys-client'
 import { checkRateLimit, RATE_LIMITS } from '@/lib/rate-limit'
 
 interface DispatchArgs {
@@ -83,7 +85,7 @@ export async function dispatchInboundToAiReply(
 
     const { data: conv, error: convErr } = await db
       .from('conversations')
-      .select('assigned_agent_id, ai_autoreply_disabled, ai_reply_count')
+      .select('assigned_agent_id, ai_autoreply_disabled, ai_reply_count, contact:contacts(phone)')
       .eq('id', conversationId)
       .maybeSingle()
     if (convErr || !conv) return
@@ -119,7 +121,9 @@ export async function dispatchInboundToAiReply(
     // nothing to undo on the handoff / no-text path. Strictly
     // best-effort: a failed indicator must never cost us the reply.
     if (inboundMessageId) {
-      await showTypingIndicator(db, accountId, inboundMessageId)
+      const contactObj = conv.contact as unknown as { phone?: string } | Array<{ phone?: string }> | null
+      const contactPhone = Array.isArray(contactObj) ? contactObj[0]?.phone : contactObj?.phone
+      await showTypingIndicator(db, accountId, inboundMessageId, contactPhone || undefined)
     }
 
     // Ground the reply in the account's knowledge base (best-effort).
@@ -225,8 +229,22 @@ async function showTypingIndicator(
   db: ReturnType<typeof supabaseAdmin>,
   accountId: string,
   inboundMessageId: string,
+  contactPhone?: string,
 ): Promise<void> {
   try {
+    const { data: config } = await db
+      .from('whatsapp_config')
+      .select('provider, baileys_status')
+      .eq('account_id', accountId)
+      .maybeSingle()
+
+    if (config?.provider === 'baileys' || (config?.baileys_status === 'connected' && !config?.provider)) {
+      if (contactPhone) {
+        await sendBaileysPresence(contactPhone, 'composing')
+      }
+      return
+    }
+
     const { phoneNumberId, accessToken } = await loadAccountMetaCredentials(
       db,
       accountId,

@@ -5,6 +5,7 @@ import { runAutomationsForTrigger, resumeAwaitingReply } from '@/lib/automations
 import { dispatchInboundToAiReply } from '@/lib/ai/auto-reply';
 import { dispatchInboundToFlows } from '@/lib/flows/engine';
 import { dispatchWebhookEvent } from '@/lib/webhooks/deliver';
+import { extensionForMime } from '@/lib/media/filename';
 
 export async function POST(req: Request) {
   const secretHeader = req.headers.get('x-baileys-secret');
@@ -60,7 +61,62 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true });
   }
 
-  // 2. Inbound message
+  // 2. Inbound Reaction
+  if (event === 'inbound_reaction') {
+    const { targetMessageId, emoji, remotePhone, senderPhone, fromMe } = data || {};
+    if (!targetMessageId) {
+      return NextResponse.json({ ok: true });
+    }
+
+    let { data: configs } = await db
+      .from('whatsapp_config')
+      .select('id, account_id, user_id')
+      .eq('provider', 'baileys')
+      .limit(1);
+
+    if (!configs || configs.length === 0) {
+      const { data: fallback } = await db.from('whatsapp_config').select('id, account_id, user_id').limit(1);
+      configs = fallback;
+    }
+    const accountId = configs?.[0]?.account_id;
+    if (!accountId) return NextResponse.json({ ok: true });
+
+    const { data: targetMessage } = await db
+      .from('messages')
+      .select('id, conversation_id')
+      .eq('message_id', targetMessageId)
+      .maybeSingle();
+
+    if (!targetMessage) return NextResponse.json({ ok: true, notice: 'Message not found' });
+
+    const phone = remotePhone || senderPhone;
+    const cleanPhone = phone ? (phone.startsWith('+') ? phone : `+${phone}`) : '';
+    if (!cleanPhone) return NextResponse.json({ ok: true });
+
+    const resolved = await resolveConversationByPhone(db, accountId, cleanPhone);
+    const contactId = resolved.contactId;
+
+    if (emoji === '') {
+      await db
+        .from('message_reactions')
+        .delete()
+        .eq('message_id', targetMessage.id)
+        .eq('actor_type', fromMe ? 'agent' : 'customer');
+    } else {
+      await db
+        .from('message_reactions')
+        .upsert({
+          message_id: targetMessage.id,
+          actor_type: fromMe ? 'agent' : 'customer',
+          actor_id: fromMe ? (configs?.[0]?.user_id || accountId) : contactId,
+          emoji,
+        }, { onConflict: 'message_id,actor_type,actor_id' });
+    }
+
+    return NextResponse.json({ ok: true });
+  }
+
+  // 3. Inbound message
   if (event === 'inbound_message') {
     const msg = data?.message;
     if (!msg) {
@@ -136,6 +192,29 @@ export async function POST(req: Request) {
 
       const contentType = ['image', 'video', 'audio', 'document'].includes(type) ? type : 'text';
 
+      // If media buffer was captured by Baileys, mirror it into chat-media storage
+      let mediaUrl: string | null = null;
+      if (msg.media?.base64) {
+        try {
+          const buffer = Buffer.from(msg.media.base64, 'base64');
+          const ext = extensionForMime(msg.media.mimeType) || 'bin';
+          const storageFileName = `${messageId}-${Date.now()}.${ext}`;
+          const storagePath = `account-${accountId}/inbound/${storageFileName}`;
+          const { error: uploadErr } = await db.storage
+            .from('chat-media')
+            .upload(storagePath, buffer, {
+              contentType: msg.media.mimeType,
+              upsert: true,
+            });
+          if (!uploadErr) {
+            const { data: publicUrlData } = db.storage.from('chat-media').getPublicUrl(storagePath);
+            mediaUrl = publicUrlData?.publicUrl || null;
+          }
+        } catch (uploadCatch) {
+          console.error('[baileys webhook] Media upload error:', uploadCatch);
+        }
+      }
+
       // Insert message
       const { data: insertedMsg, error: insertError } = await db
         .from('messages')
@@ -144,6 +223,8 @@ export async function POST(req: Request) {
           sender_type: senderType,
           content_type: contentType,
           content_text: text || '',
+          media_url: mediaUrl,
+          media_type: msg.media?.mimeType || null,
           message_id: messageId,
           status: 'delivered',
           created_at: timestamp ? new Date(timestamp * 1000).toISOString() : new Date().toISOString(),
@@ -168,6 +249,23 @@ export async function POST(req: Request) {
         .eq('id', conversationId);
 
       if (!fromMe) {
+        // Flip latest broadcast recipient row for this contact to 'replied'
+        const { data: latestRec } = await db
+          .from('broadcast_recipients')
+          .select('id, status')
+          .eq('contact_id', contactId)
+          .in('status', ['sent', 'delivered', 'read'])
+          .order('id', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (latestRec) {
+          await db
+            .from('broadcast_recipients')
+            .update({ status: 'replied' })
+            .eq('id', latestRec.id);
+        }
+
         // Trigger Automations
         runAutomationsForTrigger({
           accountId,
@@ -232,7 +330,7 @@ export async function POST(req: Request) {
     }
   }
 
-  // 3. Message Status Update
+  // 4. Message Status Update
   if (event === 'message_status_update') {
     const { key, update } = data || {};
     const metaId = key?.id;
@@ -248,6 +346,23 @@ export async function POST(req: Request) {
           .from('messages')
           .update({ status: mapped })
           .eq('message_id', metaId);
+
+        // Mirror onto broadcast_recipients
+        const { data: rec } = await db
+          .from('broadcast_recipients')
+          .select('id, status')
+          .eq('whatsapp_message_id', metaId)
+          .maybeSingle();
+
+        if (rec) {
+          const recUpdate: Record<string, unknown> = { status: mapped };
+          if (mapped === 'delivered') recUpdate.delivered_at = new Date().toISOString();
+          if (mapped === 'read') recUpdate.read_at = new Date().toISOString();
+          await db
+            .from('broadcast_recipients')
+            .update(recUpdate)
+            .eq('id', rec.id);
+        }
       }
     }
     return NextResponse.json({ ok: true });

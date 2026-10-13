@@ -137,15 +137,24 @@ export async function POST(request: Request) {
     let metaTemplateId: string
     let metaStatus: string
 
+    const { data: config, error: configError } = await supabase
+      .from('whatsapp_config')
+      .select('*')
+      .eq('account_id', accountId)
+      .single()
+
+    const isBaileys =
+      config &&
+      (config.provider === 'baileys' ||
+        (!config.waba_id && (config.baileys_status === 'connected' || !!config.baileys_phone)))
+
     if (dryRun) {
       metaTemplateId = `dry-run-${crypto.randomUUID()}`
       metaStatus = 'PENDING'
+    } else if (isBaileys) {
+      metaTemplateId = `local-${crypto.randomUUID()}`
+      metaStatus = 'APPROVED'
     } else {
-      const { data: config, error: configError } = await supabase
-        .from('whatsapp_config')
-        .select('*')
-        .eq('account_id', accountId)
-        .single()
       if (configError || !config) {
         return NextResponse.json(
           {

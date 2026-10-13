@@ -51,6 +51,17 @@ export async function GET(
       )
     }
 
+    // If message already has a stored media URL (e.g. from Baileys mirror or chat-media), redirect to it directly
+    const { data: matchedMsg } = await supabase
+      .from('messages')
+      .select('media_url, media_type')
+      .eq('message_id', mediaId)
+      .maybeSingle()
+
+    if (matchedMsg?.media_url) {
+      return NextResponse.redirect(matchedMsg.media_url)
+    }
+
     // Fetch and decrypt WhatsApp config
     const { data: config, error: configError } = await supabase
       .from('whatsapp_config')

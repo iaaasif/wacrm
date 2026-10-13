@@ -1,4 +1,5 @@
 import { sendTextMessage, sendTemplateMessage } from '@/lib/whatsapp/meta-api'
+import { sendBaileysMessage } from '@/lib/whatsapp/baileys-client'
 import type { InteractiveMessagePayload } from '@/lib/whatsapp/interactive'
 import {
   engineSendInteractiveButtons,
@@ -152,11 +153,19 @@ async function sendViaMeta(input: SendInput): Promise<{ whatsapp_message_id: str
     .select('*')
     .eq('account_id', input.accountId)
     .single()
-  if (configErr || !config) {
+  const isBaileys =
+    config.provider === 'baileys' ||
+    (!config.phone_number_id && (config.baileys_status === 'connected' || !!config.baileys_phone))
+
+  if (isBaileys) {
+    if (config.baileys_status !== 'connected' && config.status !== 'connected') {
+      throw new Error('WhatsApp Linked Device is disconnected. Please scan QR in Settings.')
+    }
+  } else if (!config.phone_number_id || !config.access_token) {
     throw new Error(t('send.notConfigured'))
   }
 
-  const accessToken = decrypt(config.access_token)
+  const accessToken = !isBaileys && config.access_token ? decrypt(config.access_token) : ''
 
   // Local template row — read for the body we persist below, not for
   // the Meta payload (the wire shape is deliberately unchanged here).
@@ -174,50 +183,83 @@ async function sendViaMeta(input: SendInput): Promise<{ whatsapp_message_id: str
         ).row
       : null
 
-  const attempt = async (phone: string): Promise<string> => {
-    if (input.kind === 'template') {
-      const r = await sendTemplateMessage({
+  let waMessageId = ''
+
+  if (isBaileys) {
+    const textToSend =
+      input.kind === 'template'
+        ? templateContentText(templateRow, input.params ?? [], undefined) || ''
+        : input.text
+
+    let baileysContent: Record<string, unknown> = {}
+    const headerType = templateRow?.header_type
+    const mediaUrl = templateRow?.header_media_url
+
+    if (
+      input.kind === 'template' &&
+      (headerType === 'image' || headerType === 'video' || headerType === 'document') &&
+      mediaUrl
+    ) {
+      baileysContent = {
+        [headerType]: {
+          url: mediaUrl,
+          caption: textToSend,
+        },
+      }
+    } else {
+      baileysContent = { text: textToSend }
+    }
+
+    const res = await sendBaileysMessage({
+      recipient: sanitized,
+      content: baileysContent,
+    })
+    waMessageId = res.messageId
+  } else {
+    const attempt = async (phone: string): Promise<string> => {
+      if (input.kind === 'template') {
+        const r = await sendTemplateMessage({
+          phoneNumberId: config.phone_number_id,
+          accessToken,
+          to: phone,
+          templateName: input.templateName,
+          language: input.language,
+          params: input.params,
+        })
+        return r.messageId
+      }
+      const r = await sendTextMessage({
         phoneNumberId: config.phone_number_id,
         accessToken,
         to: phone,
-        templateName: input.templateName,
-        language: input.language,
-        params: input.params,
+        text: input.text,
       })
       return r.messageId
     }
-    const r = await sendTextMessage({
-      phoneNumberId: config.phone_number_id,
-      accessToken,
-      to: phone,
-      text: input.text,
-    })
-    return r.messageId
-  }
 
-  // Same phone-variant retry as /api/whatsapp/send — Meta sandbox and
-  // numbers registered with/without a trunk 0 both require this to
-  // reliably land a message.
-  const variants = sendTarget.isPhone ? phoneVariants(sanitized) : [sanitized]
-  let workingPhone = sanitized
-  let waMessageId = ''
-  let lastError: unknown = null
-  for (const v of variants) {
-    try {
-      waMessageId = await attempt(v)
-      workingPhone = v
-      lastError = null
-      break
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err)
-      if (!isRecipientNotAllowedError(msg)) throw err
-      lastError = err
+    // Same phone-variant retry as /api/whatsapp/send — Meta sandbox and
+    // numbers registered with/without a trunk 0 both require this to
+    // reliably land a message.
+    const variants = sendTarget.isPhone ? phoneVariants(sanitized) : [sanitized]
+    let workingPhone = sanitized
+    let lastError: unknown = null
+    for (const v of variants) {
+      try {
+        waMessageId = await attempt(v)
+        workingPhone = v
+        lastError = null
+        break
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err)
+        if (!isRecipientNotAllowedError(msg)) throw err
+        lastError = err
+      }
     }
-  }
-  if (lastError) throw lastError
+    if (lastError) throw lastError
 
-  if (sendTarget.isPhone && workingPhone !== sanitized) {
-    await db.from('contacts').update({ phone: workingPhone }).eq('id', contact.id)
+    if (sendTarget.isPhone && workingPhone !== sanitized) {
+      await db.from('contacts').update({ phone: workingPhone }).eq('id', contact.id)
+    }
   }
 
   // Persist the sent message so it appears in the inbox with a real

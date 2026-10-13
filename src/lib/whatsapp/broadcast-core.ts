@@ -19,13 +19,14 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { sendTemplateMessage } from '@/lib/whatsapp/meta-api';
+import { sendBaileysMessage } from '@/lib/whatsapp/baileys-client';
 import { decrypt } from '@/lib/whatsapp/encryption';
 import {
   parseInternationalPhone,
   phoneVariants,
   isRecipientNotAllowedError,
 } from '@/lib/whatsapp/phone-utils';
-import { resolveTemplateRow } from '@/lib/whatsapp/template-body';
+import { resolveTemplateRow, templateContentText } from '@/lib/whatsapp/template-body';
 import type { MessageTemplate } from '@/types';
 import { findOrCreateContact } from '@/lib/api/v1/contacts';
 
@@ -71,6 +72,7 @@ export interface BroadcastPlan {
   planned: PlannedRecipient[];
   /** Phones rejected up front (invalid E.164) — counted as failed. */
   rejected: number;
+  isBaileys?: boolean;
 }
 
 const MAX_RECIPIENTS = 1000;
@@ -121,7 +123,20 @@ export async function createBroadcast(
       400
     );
   }
-  const accessToken = decrypt(config.access_token);
+
+  const isBaileys =
+    config.provider === 'baileys' ||
+    (!config.phone_number_id && (config.baileys_status === 'connected' || !!config.baileys_phone));
+
+  if (isBaileys && config.baileys_status !== 'connected' && config.status !== 'connected') {
+    throw new BroadcastError(
+      'whatsapp_not_connected',
+      'WhatsApp Linked Device is disconnected. Please scan QR in Settings.',
+      400
+    );
+  }
+
+  const accessToken = !isBaileys && config.access_token ? decrypt(config.access_token) : '';
 
   // Template row (once) for header/button components; guard a
   // malformed local row rather than N identical opaque failures.
@@ -237,11 +252,12 @@ export async function createBroadcast(
     broadcastId,
     templateName,
     templateLanguage: resolvedTemplate.language,
-    phoneNumberId: config.phone_number_id,
+    phoneNumberId: config.phone_number_id || '',
     accessToken,
     templateRow,
     planned,
     rejected,
+    isBaileys,
   };
 }
 
@@ -263,29 +279,63 @@ export async function deliverBroadcast(
   plan: BroadcastPlan
 ): Promise<void> {
   for (const recipient of plan.planned) {
-    const variants = phoneVariants(recipient.phone);
     let sentMessageId: string | null = null;
     let lastError: string | null = null;
 
-    for (const variant of variants) {
+    if (plan.isBaileys) {
       try {
-        const result = await sendTemplateMessage({
-          phoneNumberId: plan.phoneNumberId,
-          accessToken: plan.accessToken,
-          to: variant,
-          templateName: plan.templateName,
-          language: plan.templateLanguage,
-          template: plan.templateRow ?? undefined,
-          params: recipient.params,
+        const text =
+          templateContentText(plan.templateRow, recipient.params, undefined) || '';
+
+        let baileysContent: Record<string, unknown> = {};
+        const headerType = plan.templateRow?.header_type;
+        const mediaUrl = plan.templateRow?.header_media_url;
+
+        if (
+          (headerType === 'image' || headerType === 'video' || headerType === 'document') &&
+          mediaUrl
+        ) {
+          baileysContent = {
+            [headerType]: {
+              url: mediaUrl,
+              caption: text,
+            },
+          };
+        } else {
+          baileysContent = { text };
+        }
+
+        const result = await sendBaileysMessage({
+          recipient: recipient.phone,
+          content: baileysContent,
         });
         sentMessageId = result.messageId;
         lastError = null;
-        break;
       } catch (error) {
-        const message = error instanceof Error ? error.message : 'Unknown error';
-        lastError = message;
-        // Only a "recipient not allowed" error is worth another variant.
-        if (!isRecipientNotAllowedError(message)) break;
+        lastError = error instanceof Error ? error.message : 'Unknown error';
+      }
+    } else {
+      const variants = phoneVariants(recipient.phone);
+      for (const variant of variants) {
+        try {
+          const result = await sendTemplateMessage({
+            phoneNumberId: plan.phoneNumberId,
+            accessToken: plan.accessToken,
+            to: variant,
+            templateName: plan.templateName,
+            language: plan.templateLanguage,
+            template: plan.templateRow ?? undefined,
+            params: recipient.params,
+          });
+          sentMessageId = result.messageId;
+          lastError = null;
+          break;
+        } catch (error) {
+          const message = error instanceof Error ? error.message : 'Unknown error';
+          lastError = message;
+          // Only a "recipient not allowed" error is worth another variant.
+          if (!isRecipientNotAllowedError(message)) break;
+        }
       }
     }
 

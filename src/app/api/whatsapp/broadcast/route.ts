@@ -1,9 +1,14 @@
 import { NextResponse } from 'next/server'
 import { requireRole, toErrorResponse } from '@/lib/auth/account'
 import { sendTemplateMessage } from '@/lib/whatsapp/meta-api'
+import { sendBaileysMessage } from '@/lib/whatsapp/baileys-client'
 import { decrypt } from '@/lib/whatsapp/encryption'
 import type { SendTimeParams } from '@/lib/whatsapp/template-send-builder'
-import { resolveTemplateRow } from '@/lib/whatsapp/template-body'
+import {
+  resolveTemplateRow,
+  templateContentText,
+  templateBodyParams,
+} from '@/lib/whatsapp/template-body'
 import {
   sanitizePhoneForMeta,
   isValidE164,
@@ -139,7 +144,18 @@ export async function POST(request: Request) {
       )
     }
 
-    const accessToken = decrypt(config.access_token)
+    const isBaileys =
+      config.provider === 'baileys' ||
+      (!config.phone_number_id && (config.baileys_status === 'connected' || !!config.baileys_phone))
+
+    if (isBaileys && config.baileys_status !== 'connected' && config.status !== 'connected') {
+      return NextResponse.json(
+        { error: 'WhatsApp Linked Device is disconnected. Please scan QR in Settings.' },
+        { status: 400 }
+      )
+    }
+
+    const accessToken = !isBaileys && config.access_token ? decrypt(config.access_token) : ''
 
     // Load the template row once so sendTemplateMessage can build
     // header + button components on each iteration. Loading inside
@@ -180,36 +196,68 @@ export async function POST(request: Request) {
         continue
       }
 
-      // Retry with phone variants on "not in allowed list" so numbers
-      // that differ only in a trunk-prefix 0 still reach recipients.
-      const variants = phoneVariants(sanitized)
       let sentMessageId: string | null = null
       let lastError: string | null = null
 
-      for (const variant of variants) {
+      if (isBaileys) {
         try {
-          const result = await sendTemplateMessage({
-            phoneNumberId: config.phone_number_id,
-            accessToken,
-            to: variant,
-            templateName: template_name,
-            language: resolvedTemplate.language,
-            template: templateRow ?? undefined,
-            messageParams: recipient.messageParams,
-            params: recipient.params ?? [],
-          })
-          sentMessageId = result.messageId
-          lastError = null
-          break
-        } catch (error) {
-          const errorMessage =
-            error instanceof Error ? error.message : t('common.unknownError')
-          if (!isRecipientNotAllowedError(errorMessage)) {
-            lastError = errorMessage
-            break
+          const bodyParams = templateBodyParams(recipient.params, recipient.messageParams)
+          const text = templateContentText(templateRow, bodyParams, undefined) || ''
+
+          let baileysContent: Record<string, unknown> = {}
+          const headerType = templateRow?.header_type
+          const mediaUrl = recipient.messageParams?.headerMediaUrl || templateRow?.header_media_url
+
+          if ((headerType === 'image' || headerType === 'video' || headerType === 'document') && mediaUrl) {
+            baileysContent = {
+              [headerType]: {
+                url: mediaUrl,
+                caption: text,
+              },
+            }
+          } else {
+            baileysContent = { text }
           }
-          lastError = errorMessage
-          // retry with next variant
+
+          const res = await sendBaileysMessage({
+            recipient: sanitized,
+            content: baileysContent,
+          })
+          sentMessageId = res.messageId
+          lastError = null
+        } catch (error) {
+          lastError = error instanceof Error ? error.message : t('common.unknownError')
+        }
+      } else {
+        // Retry with phone variants on "not in allowed list" so numbers
+        // that differ only in a trunk-prefix 0 still reach recipients.
+        const variants = phoneVariants(sanitized)
+
+        for (const variant of variants) {
+          try {
+            const result = await sendTemplateMessage({
+              phoneNumberId: config.phone_number_id,
+              accessToken,
+              to: variant,
+              templateName: template_name,
+              language: resolvedTemplate.language,
+              template: templateRow ?? undefined,
+              messageParams: recipient.messageParams,
+              params: recipient.params ?? [],
+            })
+            sentMessageId = result.messageId
+            lastError = null
+            break
+          } catch (error) {
+            const errorMessage =
+              error instanceof Error ? error.message : t('common.unknownError')
+            if (!isRecipientNotAllowedError(errorMessage)) {
+              lastError = errorMessage
+              break
+            }
+            lastError = errorMessage
+            // retry with next variant
+          }
         }
       }
 

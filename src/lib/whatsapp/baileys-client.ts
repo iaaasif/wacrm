@@ -14,7 +14,7 @@ interface BaileysSessionStatus {
   lastUpdated: string;
 }
 
-interface SendBaileysOptions {
+export interface SendBaileysOptions {
   recipient: string;
   content: {
     text?: string;
@@ -24,6 +24,7 @@ interface SendBaileysOptions {
     document?: { url: string; mimetype?: string; filename?: string; caption?: string };
     react?: { text: string; key: any };
   };
+  quotedMessageId?: string;
 }
 
 function getHeaders(): HeadersInit {
@@ -140,3 +141,19 @@ export async function sendBaileysMessage(
 
   return await res.json();
 }
+
+export async function sendBaileysPresence(
+  recipient: string,
+  presence: 'composing' | 'paused'
+): Promise<void> {
+  try {
+    await fetch(`${GATEWAY_URL}/session/presence`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify({ recipient, presence }),
+    });
+  } catch {
+    // Best-effort typing indicator
+  }
+}
+

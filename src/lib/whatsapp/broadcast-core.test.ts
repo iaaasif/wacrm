@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import {
   createBroadcast,
+  deliverBroadcast,
   finalizeBroadcastStatus,
   BroadcastError,
 } from './broadcast-core';
@@ -10,6 +11,9 @@ import {
 // them so these tests focus on the persistence boundary.
 vi.mock('@/lib/whatsapp/encryption', () => ({
   decrypt: () => 'plain-access-token',
+}));
+vi.mock('@/lib/whatsapp/baileys-client', () => ({
+  sendBaileysMessage: vi.fn(async () => ({ messageId: 'baileys.msg.123' })),
 }));
 vi.mock('@/lib/api/v1/contacts', () => ({
   findOrCreateContact: vi.fn(async () => ({ id: 'c1' })),
@@ -252,3 +256,101 @@ describe('finalizeBroadcastStatus', () => {
     expect(writes.update?.status).toBe('sent');
   });
 });
+
+describe('createBroadcast & deliverBroadcast with Baileys Linked Device', () => {
+  it('creates broadcast plan with isBaileys = true when provider is baileys', async () => {
+    const database = {
+      from(table: string) {
+        if (table === 'whatsapp_config') {
+          return {
+            select: () => ({
+              eq: () => ({
+                single: () =>
+                  Promise.resolve({
+                    data: { provider: 'baileys', baileys_status: 'connected', baileys_phone: '+14155550123' },
+                    error: null,
+                  }),
+              }),
+            }),
+          };
+        }
+        if (table === 'message_templates') {
+          const chain: Record<string, unknown> = {
+            select: () => chain,
+            eq: () => chain,
+            maybeSingle: () => Promise.resolve({ data: { name: 'hello', body_text: 'Hi {{1}}' }, error: null }),
+          };
+          return chain;
+        }
+        throw new Error(`unexpected table: ${table}`);
+      },
+      rpc: () =>
+        Promise.resolve({
+          data: [{ broadcast_id: 'b-baileys-1', recipient_id: 'r-1', contact_id: 'c1' }],
+          error: null,
+        }),
+    } as unknown as SupabaseClient;
+
+    const plan = await createBroadcast(database, 'acc', 'user', {
+      templateName: 'hello',
+      recipients: [{ to: '+14155550123', params: ['Alice'] }],
+    });
+
+    expect(plan.isBaileys).toBe(true);
+    expect(plan.broadcastId).toBe('b-baileys-1');
+  });
+
+  it('delivers broadcast via sendBaileysMessage when plan.isBaileys is true', async () => {
+    const { sendBaileysMessage } = await import('@/lib/whatsapp/baileys-client');
+    const recipientUpdates: Record<string, unknown>[] = [];
+    const broadcastUpdates: Record<string, unknown>[] = [];
+
+    const database = {
+      from(table: string) {
+        let statusFilter: string | null = null;
+        const b: Record<string, unknown> = {
+          select: () => b,
+          eq: (col: string, val: unknown) => {
+            if (col === 'status') statusFilter = val as string;
+            return b;
+          },
+          update: (row: Record<string, unknown>) => {
+            if (table === 'broadcast_recipients') recipientUpdates.push(row);
+            if (table === 'broadcasts') broadcastUpdates.push(row);
+            return b;
+          },
+          then: (resolve: (r: { count: number; error: null }) => unknown) =>
+            resolve({
+              count: statusFilter === 'pending' ? 0 : 0,
+              error: null,
+            }),
+        };
+        return b;
+      },
+    } as unknown as SupabaseClient;
+
+    const plan = {
+      broadcastId: 'b-baileys-1',
+      templateName: 'hello',
+      templateLanguage: 'en_US',
+      phoneNumberId: '',
+      accessToken: '',
+      templateRow: { name: 'hello', body_text: 'Hi {{1}}' } as any,
+      planned: [{ recipientRowId: 'r-1', phone: '+14155550123', params: ['Alice'] }],
+      rejected: 0,
+      isBaileys: true,
+    };
+
+    await deliverBroadcast(database, plan);
+
+    expect(sendBaileysMessage).toHaveBeenCalledWith({
+      recipient: '+14155550123',
+      content: { text: 'Hi Alice' },
+    });
+    expect(recipientUpdates[0]).toMatchObject({
+      status: 'sent',
+      whatsapp_message_id: 'baileys.msg.123',
+    });
+  });
+});
+

@@ -154,6 +154,20 @@ export async function POST() {
       )
     }
 
+    const isBaileys =
+      config.provider === 'baileys' ||
+      (!config.waba_id && (config.baileys_status === 'connected' || !!config.baileys_phone))
+
+    if (isBaileys) {
+      return NextResponse.json({
+        success: true,
+        total: 0,
+        inserted: 0,
+        updated: 0,
+        message: 'WhatsApp Linked Device (Baileys) uses local templates.',
+      })
+    }
+
     if (!config.waba_id) {
       return NextResponse.json(
         {

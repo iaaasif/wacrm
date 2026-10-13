@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireRole, toErrorResponse } from '@/lib/auth/account';
 import { sendReactionMessage } from '@/lib/whatsapp/meta-api';
+import { sendBaileysMessage } from '@/lib/whatsapp/baileys-client';
 import { decrypt } from '@/lib/whatsapp/encryption';
 import { resolveContactSendTarget } from '@/lib/whatsapp/wa-identity';
 import {
@@ -94,10 +95,10 @@ export async function POST(request: Request) {
       );
     }
 
-    // WhatsApp config + access token. Account-scoped post-multi-user.
+    // WhatsApp config. Account-scoped post-multi-user.
     const { data: config, error: configError } = await supabase
       .from('whatsapp_config')
-      .select('phone_number_id, access_token')
+      .select('*')
       .eq('account_id', accountId)
       .single();
 
@@ -108,24 +109,61 @@ export async function POST(request: Request) {
       );
     }
 
-    const accessToken = decrypt(config.access_token);
+    const isBaileys =
+      config.provider === 'baileys' ||
+      (!config.phone_number_id && (config.baileys_status === 'connected' || !!config.baileys_phone));
 
-    try {
-      await sendReactionMessage({
-        phoneNumberId: config.phone_number_id,
-        accessToken,
-        to: sendTarget.target,
-        targetMessageId: targetMessage.message_id,
-        emoji,
-      });
-    } catch (err) {
-      const message =
-        err instanceof Error ? err.message : t('react.unknownMetaError');
-      console.error('[whatsapp/react] Meta send failed:', message);
-      return NextResponse.json(
-        { error: t('react.metaError', { message }) },
-        { status: 502 },
-      );
+    if (isBaileys) {
+      if (config.baileys_status !== 'connected' && config.status !== 'connected') {
+        return NextResponse.json(
+          { error: 'WhatsApp Linked Device is disconnected. Please scan QR in Settings.' },
+          { status: 400 },
+        );
+      }
+      try {
+        const jid = sendTarget.target.includes('@')
+          ? sendTarget.target
+          : `${sendTarget.target.replace(/[^0-9]/g, '')}@s.whatsapp.net`;
+
+        await sendBaileysMessage({
+          recipient: sendTarget.target,
+          content: {
+            react: {
+              text: emoji,
+              key: {
+                remoteJid: jid,
+                id: targetMessage.message_id,
+              },
+            },
+          },
+        });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Baileys error';
+        console.error('[whatsapp/react] Baileys send failed:', message);
+        return NextResponse.json(
+          { error: `Baileys error: ${message}` },
+          { status: 502 },
+        );
+      }
+    } else {
+      const accessToken = decrypt(config.access_token);
+      try {
+        await sendReactionMessage({
+          phoneNumberId: config.phone_number_id,
+          accessToken,
+          to: sendTarget.target,
+          targetMessageId: targetMessage.message_id,
+          emoji,
+        });
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : t('react.unknownMetaError');
+        console.error('[whatsapp/react] Meta send failed:', message);
+        return NextResponse.json(
+          { error: t('react.metaError', { message }) },
+          { status: 502 },
+        );
+      }
     }
 
     // Mirror into DB. Empty emoji = removal.

@@ -131,7 +131,9 @@ export async function PATCH(
       )
     }
 
-    if (!isDryRun()) {
+    const isLocalTemplate = existing.meta_template_id?.startsWith('local-')
+
+    if (!isDryRun() && !isLocalTemplate) {
       const { data: config, error: configError } = await supabase
         .from('whatsapp_config')
         .select('*')
@@ -178,7 +180,8 @@ export async function PATCH(
       }
     }
 
-    // Meta accepted the edit — status flips back to PENDING for review.
+    // Meta accepted the edit — status flips back to PENDING for review (or APPROVED if local).
+    const nextStatus = isLocalTemplate ? 'APPROVED' : 'PENDING'
     const { data: row, error: updErr } = await supabase
       .from('message_templates')
       .update({
@@ -191,7 +194,7 @@ export async function PATCH(
         footer_text: payload.footer_text ?? null,
         buttons: payload.buttons ?? null,
         sample_values: payload.sample_values ?? null,
-        status: 'PENDING',
+        status: nextStatus,
         submission_error: null,
         rejection_reason: null,
         last_submitted_at: new Date().toISOString(),
@@ -256,7 +259,11 @@ export async function DELETE(
       return NextResponse.json({ error: t('templates.notFound') }, { status: 404 })
     }
 
-    if (existing.meta_template_id && !isDryRun()) {
+    if (
+      existing.meta_template_id &&
+      !existing.meta_template_id.startsWith('local-') &&
+      !isDryRun()
+    ) {
       const { data: config, error: configError } = await supabase
         .from('whatsapp_config')
         .select('*')
