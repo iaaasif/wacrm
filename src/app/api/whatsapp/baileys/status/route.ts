@@ -73,6 +73,25 @@ export async function GET() {
     } catch (syncErr) {
       console.error('[baileys/status] Error auto-syncing config:', syncErr);
     }
+  } else {
+    // Socket is disconnected or waiting for QR scan — sync database if it currently shows connected
+    if (config && (config.baileys_status === 'connected' || config.status === 'connected')) {
+      try {
+        const db = supabaseAdmin();
+        await db
+          .from('whatsapp_config')
+          .update({
+            baileys_status: gatewayStatus.status,
+            status: 'disconnected',
+            baileys_phone: null,
+            baileys_jid: null,
+            baileys_connected_at: null,
+          })
+          .eq('id', config.id);
+      } catch (syncErr) {
+        console.error('[baileys/status] Error auto-syncing disconnected state:', syncErr);
+      }
+    }
   }
 
   return NextResponse.json({

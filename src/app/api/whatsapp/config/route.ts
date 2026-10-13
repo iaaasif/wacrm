@@ -22,6 +22,7 @@ import {
 } from '@/lib/whatsapp/waba-pairing'
 import { encrypt, decrypt } from '@/lib/whatsapp/encryption'
 import { resolveVerifyTokenForSave } from '@/lib/whatsapp/verify-token'
+import { getBaileysQr } from '@/lib/whatsapp/baileys-client'
 import { getT } from '@/lib/i18n/translate'
 
 const t = getT('Api')
@@ -149,16 +150,35 @@ export async function GET() {
       )
     }
 
-    // If provider is Baileys, evaluate connection status from Baileys state
+    // If provider is Baileys, evaluate connection status from live Baileys state
     if (config.provider === 'baileys') {
-      const isConnected =
-        config.baileys_status === 'connected' || config.status === 'connected';
+      const liveStatus = await getBaileysQr().catch(() => null);
+      const isConnected = liveStatus ? liveStatus.status === 'connected' : false;
+
+      // Sync database if stale
+      if (liveStatus && (config.baileys_status !== liveStatus.status || (config.status === 'connected') !== isConnected)) {
+        try {
+          const db = supabaseAdmin();
+          await db
+            .from('whatsapp_config')
+            .update({
+              baileys_status: liveStatus.status,
+              status: isConnected ? 'connected' : 'disconnected',
+              baileys_phone: isConnected ? (liveStatus.phone || config.baileys_phone || null) : null,
+              baileys_jid: isConnected ? (liveStatus.jid || config.baileys_jid || null) : null,
+            })
+            .eq('id', config.id);
+        } catch (syncErr) {
+          console.error('[whatsapp/config] Error syncing Baileys state:', syncErr);
+        }
+      }
+
       return NextResponse.json(
         {
           connected: isConnected,
           provider: 'baileys',
-          phone: config.baileys_phone || null,
-          jid: config.baileys_jid || null,
+          phone: isConnected ? (liveStatus?.phone || config.baileys_phone || null) : null,
+          jid: isConnected ? (liveStatus?.jid || config.baileys_jid || null) : null,
         },
         { status: 200 }
       );

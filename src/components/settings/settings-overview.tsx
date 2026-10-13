@@ -126,18 +126,17 @@ export function SettingsOverview({
           .select('phone_number_id, provider, baileys_phone, status, baileys_status')
           .eq('account_id', acctId)
           .maybeSingle(),
-        fetch('/api/whatsapp/config', { cache: 'no-store' }).then((r) => r.json()),
+        fetch('/api/whatsapp/config', { cache: 'no-store' }).then((r) => (r.ok ? r.json() : null)),
       ]);
       if (cancelled) return;
       const configData = row.status === 'fulfilled' ? row.value.data : null;
+      const healthData = health.status === 'fulfilled' ? health.value : null;
       const isBaileys = configData?.provider === 'baileys';
       setWhatsapp({
         configured: isBaileys
-          ? !!configData?.baileys_phone || !!configData?.provider
+          ? !!configData?.provider
           : !!configData?.phone_number_id,
-        connected: isBaileys
-          ? configData?.baileys_status === 'connected' || configData?.status === 'connected'
-          : health.status === 'fulfilled' && !!health.value?.connected,
+        connected: !!healthData?.connected,
       });
       setWhatsappLoading(false);
     })();

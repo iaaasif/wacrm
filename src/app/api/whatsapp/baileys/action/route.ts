@@ -83,6 +83,7 @@ export async function POST(req: Request) {
         .from('whatsapp_config')
         .update({
           baileys_status: 'disconnected',
+          status: 'disconnected',
           baileys_phone: null,
           baileys_jid: null,
           baileys_connected_at: null,
