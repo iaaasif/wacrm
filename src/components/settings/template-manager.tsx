@@ -1240,17 +1240,19 @@ export function TemplateManager() {
 
       {/* Starter Templates Library Dialog */}
       <Dialog open={starterDialogOpen} onOpenChange={setStarterDialogOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-0">
-          <DialogHeader className="px-6 pt-6 pb-4 border-b border-border">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+        <DialogContent className="sm:max-w-4xl w-[95vw] max-h-[88vh] flex flex-col p-0 overflow-hidden bg-popover border-border">
+          <DialogHeader className="px-6 py-4 border-b border-border bg-card/40 shrink-0 pr-12">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
                   <Sparkles className="size-5" />
                 </div>
-                <div>
-                  <DialogTitle className="text-lg font-semibold">Starter Message Templates Library</DialogTitle>
-                  <DialogDescription className="text-xs text-muted-foreground mt-0.5">
-                    Pre-crafted, high-converting WhatsApp templates ready for Marketing &amp; Utility workflows.
+                <div className="min-w-0">
+                  <DialogTitle className="text-base sm:text-lg font-semibold text-foreground">
+                    Starter Message Templates Library
+                  </DialogTitle>
+                  <DialogDescription className="text-xs text-muted-foreground mt-0.5 truncate">
+                    Ready-to-use, high-converting WhatsApp templates for Marketing &amp; Utility
                   </DialogDescription>
                 </div>
               </div>
@@ -1258,33 +1260,33 @@ export function TemplateManager() {
                 size="sm"
                 onClick={handleInstallAllStarters}
                 disabled={installingStarters}
-                className="shrink-0"
+                className="shrink-0 font-medium"
               >
                 {installingStarters ? (
-                  <Loader2 className="mr-1.5 size-3.5 animate-spin" />
+                  <Loader2 className="mr-1.5 size-4 animate-spin" />
                 ) : (
-                  <Sparkles className="mr-1.5 size-3.5" />
+                  <Sparkles className="mr-1.5 size-4" />
                 )}
                 Install All (8 Templates)
               </Button>
             </div>
           </DialogHeader>
 
-          <div className="flex-1 overflow-y-auto p-6">
-            <div className="grid gap-4 md:grid-cols-2">
+          <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-6">
+            <div className="grid gap-4 sm:grid-cols-2">
               {STARTER_TEMPLATES.map((tpl) => (
                 <div
                   key={tpl.name}
-                  className="group relative flex flex-col justify-between rounded-xl border border-border bg-card/60 p-4 transition-all hover:border-primary/40 hover:shadow-sm"
+                  className="group relative flex flex-col justify-between rounded-xl border border-border bg-card/60 p-4 transition-all hover:border-primary/40 hover:shadow-sm min-w-0 overflow-hidden"
                 >
-                  <div className="space-y-2.5">
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <h4 className="font-medium text-foreground text-sm">{tpl.title}</h4>
-                        <span className="font-mono text-[11px] text-muted-foreground">{tpl.name}</span>
+                  <div className="space-y-2.5 min-w-0">
+                    <div className="flex items-start justify-between gap-2 min-w-0">
+                      <div className="min-w-0 flex-1">
+                        <h4 className="font-semibold text-foreground text-sm truncate">{tpl.title}</h4>
+                        <p className="font-mono text-[11px] text-muted-foreground truncate">{tpl.name}</p>
                       </div>
                       <Badge
-                        className={`text-[10px] uppercase tracking-wide border ${
+                        className={`shrink-0 text-[10px] font-medium uppercase tracking-wider border ${
                           categoryColors[tpl.category] || ''
                         }`}
                       >
@@ -1292,21 +1294,21 @@ export function TemplateManager() {
                       </Badge>
                     </div>
 
-                    <p className="text-xs text-muted-foreground leading-relaxed">
+                    <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2">
                       {tpl.description}
                     </p>
 
-                    <div className="rounded-lg border border-border/80 bg-muted/40 p-3 text-xs space-y-1.5">
+                    <div className="rounded-lg border border-border/80 bg-muted/40 p-3 text-xs space-y-1.5 break-words">
                       {tpl.header_content && (
                         <div className="font-semibold text-foreground text-[11px]">
                           {tpl.header_content}
                         </div>
                       )}
-                      <div className="text-muted-foreground whitespace-pre-wrap leading-relaxed">
+                      <div className="text-muted-foreground leading-relaxed whitespace-pre-wrap text-[11px] break-words">
                         {tpl.body_text}
                       </div>
                       {tpl.footer_text && (
-                        <div className="text-[10px] text-muted-foreground/70 italic pt-1">
+                        <div className="text-[10px] text-muted-foreground/70 italic pt-0.5">
                           {tpl.footer_text}
                         </div>
                       )}
@@ -1326,12 +1328,12 @@ export function TemplateManager() {
                     )}
                   </div>
 
-                  <div className="pt-4 flex items-center justify-end">
+                  <div className="pt-3 border-t border-border/40 mt-3 flex items-center justify-end">
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => handleUseStarter(tpl)}
-                      className="text-xs h-8"
+                      className="text-xs h-7 px-3"
                     >
                       Customize &amp; Use
                     </Button>
@@ -1341,7 +1343,7 @@ export function TemplateManager() {
             </div>
           </div>
 
-          <DialogFooter className="px-6 py-3 border-t border-border bg-muted/20">
+          <DialogFooter className="px-6 py-3 border-t border-border bg-muted/20 shrink-0">
             <Button variant="ghost" size="sm" onClick={() => setStarterDialogOpen(false)}>
               Close
             </Button>
