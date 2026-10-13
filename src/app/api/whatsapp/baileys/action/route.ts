@@ -26,7 +26,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'No account found' }, { status: 400 });
   }
 
-  let body: any;
+  let body: { action?: string; provider?: string; phone?: string } = {};
   try {
     body = await req.json();
   } catch {
@@ -37,7 +37,7 @@ export async function POST(req: Request) {
 
   // 1. Switch active provider
   if (action === 'set_provider') {
-    if (!['meta', 'baileys'].includes(provider)) {
+    if (!provider || !['meta', 'baileys'].includes(provider)) {
       return NextResponse.json({ error: 'Invalid provider' }, { status: 400 });
     }
 
@@ -69,8 +69,9 @@ export async function POST(req: Request) {
     try {
       await restartBaileysSession();
       return NextResponse.json({ success: true });
-    } catch (err: any) {
-      return NextResponse.json({ error: err.message }, { status: 500 });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to restart session';
+      return NextResponse.json({ error: message }, { status: 500 });
     }
   }
 
@@ -88,8 +89,9 @@ export async function POST(req: Request) {
         })
         .eq('account_id', profile.account_id);
       return NextResponse.json({ success: true });
-    } catch (err: any) {
-      return NextResponse.json({ error: err.message }, { status: 500 });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to logout';
+      return NextResponse.json({ error: message }, { status: 500 });
     }
   }
 
@@ -101,8 +103,9 @@ export async function POST(req: Request) {
     try {
       const code = await requestBaileysPairingCode(phone);
       return NextResponse.json({ code });
-    } catch (err: any) {
-      return NextResponse.json({ error: err.message }, { status: 500 });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to generate code';
+      return NextResponse.json({ error: message }, { status: 500 });
     }
   }
 

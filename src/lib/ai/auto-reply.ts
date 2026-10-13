@@ -10,7 +10,6 @@ import { latestUserMessage } from './query'
 import {
   engineSendText,
   loadAccountMetaCredentials,
-  loadAccountWhatsAppConfig,
 } from '@/lib/flows/meta-send'
 import { sendTypingIndicator } from '@/lib/whatsapp/meta-api'
 import { sendBaileysPresence } from '@/lib/whatsapp/baileys-client'

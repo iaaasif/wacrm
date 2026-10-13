@@ -31,7 +31,6 @@ export function BaileysConfig() {
   const [jid, setJid] = useState<string | null>(null);
 
   // Pairing code mode
-  const [usePairingCode, setUsePairingCode] = useState(false);
   const [pairPhoneInput, setPairPhoneInput] = useState('');
   const [pairingCodeResult, setPairingCodeResult] = useState<string | null>(null);
   const [pairLoading, setPairLoading] = useState(false);
@@ -46,7 +45,7 @@ export function BaileysConfig() {
       setQrCodeUrl(data.qrCodeUrl);
       setPhone(data.phone);
       setJid(data.jid);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('[Baileys] Error fetching status:', err);
     } finally {
       setLoading(false);
@@ -74,8 +73,8 @@ export function BaileysConfig() {
       if (!res.ok) throw new Error('Restart failed');
       toast.success('Baileys connection restarted');
       await fetchStatus();
-    } catch (err: any) {
-      toast.error(err.message || 'Failed to restart connection');
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Failed to restart connection');
     } finally {
       setActionLoading(false);
     }
@@ -95,8 +94,8 @@ export function BaileysConfig() {
       if (!res.ok) throw new Error('Logout failed');
       toast.success('Logged out successfully');
       await fetchStatus();
-    } catch (err: any) {
-      toast.error(err.message || 'Failed to logout');
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Failed to logout');
     } finally {
       setActionLoading(false);
     }
@@ -118,8 +117,8 @@ export function BaileysConfig() {
       if (!res.ok) throw new Error(data.error || 'Failed to get code');
       setPairingCodeResult(data.code);
       toast.success('Pairing code generated! Enter it in WhatsApp.');
-    } catch (err: any) {
-      toast.error(err.message || 'Failed to generate code');
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Failed to generate code');
     } finally {
       setPairLoading(false);
     }

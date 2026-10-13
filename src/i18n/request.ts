@@ -4,7 +4,7 @@ import esMessages from '../../messages/es.json';
 import koMessages from '../../messages/ko.json';
 import ptMessages from '../../messages/pt.json';
 
-const dictionaries: Record<string, any> = {
+const dictionaries: Record<string, typeof enMessages> = {
   en: enMessages,
   es: esMessages,
   ko: koMessages,

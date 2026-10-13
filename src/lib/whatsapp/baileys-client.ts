@@ -22,7 +22,7 @@ export interface SendBaileysOptions {
     video?: { url: string; caption?: string };
     audio?: { url: string };
     document?: { url: string; mimetype?: string; filename?: string; caption?: string };
-    react?: { text: string; key: any };
+    react?: { text: string; key: Record<string, unknown> };
   };
   quotedMessageId?: string;
 }
@@ -47,7 +47,7 @@ export async function getBaileysStatus(): Promise<BaileysSessionStatus> {
     }
 
     return await res.json();
-  } catch (err: any) {
+  } catch {
     return {
       status: 'disconnected',
       phone: null,
@@ -77,7 +77,7 @@ export async function getBaileysQr(): Promise<{
     }
 
     return await res.json();
-  } catch (err: any) {
+  } catch {
     return {
       status: 'disconnected',
       qrCodeUrl: null,

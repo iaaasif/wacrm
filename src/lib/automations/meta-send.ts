@@ -153,6 +153,9 @@ async function sendViaMeta(input: SendInput): Promise<{ whatsapp_message_id: str
     .select('*')
     .eq('account_id', input.accountId)
     .single()
+  if (configErr || !config) {
+    throw new Error(t('send.notConfigured'))
+  }
   const isBaileys =
     config.provider === 'baileys' ||
     (!config.phone_number_id && (config.baileys_status === 'connected' || !!config.baileys_phone))

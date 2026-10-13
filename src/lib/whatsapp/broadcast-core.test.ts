@@ -335,7 +335,7 @@ describe('createBroadcast & deliverBroadcast with Baileys Linked Device', () => 
       templateLanguage: 'en_US',
       phoneNumberId: '',
       accessToken: '',
-      templateRow: { name: 'hello', body_text: 'Hi {{1}}' } as any,
+      templateRow: { name: 'hello', body_text: 'Hi {{1}}' } as unknown as Parameters<typeof deliverBroadcast>[1]['templateRow'],
       planned: [{ recipientRowId: 'r-1', phone: '+14155550123', params: ['Alice'] }],
       rejected: 0,
       isBaileys: true,

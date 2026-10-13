@@ -163,7 +163,7 @@ export function WhatsAppConfig() {
 
       if (data) {
         setConfig(data);
-        setProvider((data.provider as any) || 'meta');
+        setProvider((data.provider as 'meta' | 'baileys') || 'meta');
         setPhoneNumberId(data.phone_number_id || '');
         setWabaId(data.waba_id || '');
         setAccessToken(MASKED_TOKEN);
