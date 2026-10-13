@@ -15,6 +15,8 @@ import {
   DollarSign,
   StickyNote,
   Plus,
+  Pencil,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -24,9 +26,10 @@ import { contactHandle } from "@/lib/whatsapp/wa-identity";
 
 interface ContactSidebarProps {
   contact: Contact | null;
+  onUpdateContact?: (updated: Contact) => void;
 }
 
-export function ContactSidebar({ contact }: ContactSidebarProps) {
+export function ContactSidebar({ contact, onUpdateContact }: ContactSidebarProps) {
   const tSidebar = useTranslations("Inbox.sidebar");
   const tThread = useTranslations("Inbox.messageThread");
 
@@ -37,6 +40,9 @@ export function ContactSidebar({ contact }: ContactSidebarProps) {
   const [tags, setTags] = useState<(Tag & { contact_tag_id: string })[]>([]);
   const [newNote, setNewNote] = useState("");
   const [addingNote, setAddingNote] = useState(false);
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [editedName, setEditedName] = useState("");
+  const [savingName, setSavingName] = useState(false);
 
   const fetchContactData = useCallback(async () => {
     if (!contact) return;
@@ -123,6 +129,24 @@ export function ContactSidebar({ contact }: ContactSidebarProps) {
     setAddingNote(false);
   }, [contact, newNote, accountId]);
 
+  const handleSaveName = useCallback(async () => {
+    if (!contact) return;
+    setSavingName(true);
+    const trimmed = editedName.trim();
+    const supabase = createClient();
+    const { error } = await supabase
+      .from("contacts")
+      .update({ name: trimmed || null, updated_at: new Date().toISOString() })
+      .eq("id", contact.id);
+
+    if (!error) {
+      const updated = { ...contact, name: trimmed || undefined };
+      onUpdateContact?.(updated);
+      setIsEditingName(false);
+    }
+    setSavingName(false);
+  }, [contact, editedName, onUpdateContact]);
+
   if (!contact) {
     return (
       <div className="flex h-full w-70 items-center justify-center border-l border-border bg-card">
@@ -151,9 +175,58 @@ export function ContactSidebar({ contact }: ContactSidebarProps) {
                 initials
               )}
             </div>
-            <h3 className="mt-3 text-sm font-semibold text-foreground">
-              {displayName}
-            </h3>
+            {isEditingName ? (
+              <div className="mt-3 flex items-center gap-1.5 w-full max-w-[200px]">
+                <input
+                  type="text"
+                  value={editedName}
+                  onChange={(e) => setEditedName(e.target.value)}
+                  placeholder="Enter name"
+                  className="flex-1 rounded border border-border bg-background px-2 py-1 text-xs text-foreground focus:outline-none focus:border-primary"
+                  autoFocus
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleSaveName();
+                    if (e.key === "Escape") setIsEditingName(false);
+                  }}
+                />
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-6 w-6 p-0 text-primary hover:bg-primary/10"
+                  onClick={handleSaveName}
+                  disabled={savingName}
+                  aria-label="Save name"
+                >
+                  <Check className="h-3.5 w-3.5" />
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-6 w-6 p-0 text-muted-foreground hover:bg-muted"
+                  onClick={() => setIsEditingName(false)}
+                  aria-label="Cancel editing"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            ) : (
+              <div className="mt-3 flex items-center justify-center gap-1.5 group">
+                <h3 className="text-sm font-semibold text-foreground">
+                  {displayName}
+                </h3>
+                <button
+                  onClick={() => {
+                    setEditedName(contact.name || "");
+                    setIsEditingName(true);
+                  }}
+                  className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground"
+                  title="Edit contact name"
+                  aria-label="Edit contact name"
+                >
+                  <Pencil className="h-3 w-3" />
+                </button>
+              </div>
+            )}
             {contact.company && (
               <p className="text-xs text-muted-foreground">{contact.company}</p>
             )}
