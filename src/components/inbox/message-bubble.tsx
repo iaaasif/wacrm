@@ -119,7 +119,13 @@ function MessageContent({
     case "text":
       return (
         <p className="whitespace-pre-wrap break-words text-sm">
-          {message.content_text}
+          {message.content_text?.trim() ? (
+            message.content_text
+          ) : (
+            <span className="italic text-muted-foreground/75 text-xs">
+              {isAgent ? "Message sent" : "Message received"}
+            </span>
+          )}
         </p>
       );
 

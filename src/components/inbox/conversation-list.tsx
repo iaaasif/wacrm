@@ -42,6 +42,23 @@ const STATUS_COLORS: Record<ConversationStatus, string> = {
   closed: "bg-muted-foreground",
 };
 
+function formatLastMessagePreview(text: string | null | undefined, fallback: string): string {
+  if (!text || !text.trim() || text.trim().toLowerCase() === "[text]") return fallback;
+  const trimmed = text.trim();
+  const mediaMap: Record<string, string> = {
+    "[image]": "📷 Photo",
+    "[photo]": "📷 Photo",
+    "[video]": "🎥 Video",
+    "[audio]": "🎵 Audio",
+    "[voice]": "🎤 Voice note",
+    "[document]": "📄 Document",
+    "[location]": "📍 Location",
+    "[sticker]": "🎨 Sticker",
+    "[template]": "📋 Template",
+  };
+  return mediaMap[trimmed.toLowerCase()] || trimmed;
+}
+
 
 
 type InboxFilter = ConversationStatus | "all" | "unread";
@@ -481,7 +498,7 @@ function ConversationItem({
         </div>
         <div className="mt-0.5 flex items-center justify-between gap-2">
           <p className="truncate text-xs text-muted-foreground">
-            {conversation.last_message_text || t("noMessagesYet")}
+            {formatLastMessagePreview(conversation.last_message_text, t("noMessagesYet"))}
           </p>
           <div className="flex shrink-0 items-center gap-1.5">
             {conversation.unread_count > 0 && (

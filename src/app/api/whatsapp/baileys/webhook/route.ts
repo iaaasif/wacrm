@@ -190,7 +190,61 @@ export async function POST(req: Request) {
         return NextResponse.json({ ok: true, notice: 'Already processed' });
       }
 
-      const contentType = ['image', 'video', 'audio', 'document'].includes(type) ? type : 'text';
+      // Helper to recursively unwrap Baileys nested messages (deviceSentMessage, ephemeral, viewOnce, etc.)
+      const unwrapBaileysRaw = (rawMsg: any): { text: string; type: string } => {
+        let textCandidate = typeof text === 'string' ? text.trim() : '';
+        let typeCandidate = ['image', 'video', 'audio', 'document'].includes(type) ? type : 'text';
+
+        let m = rawMsg?.message || rawMsg || {};
+        for (let i = 0; i < 8; i++) {
+          if (m?.deviceSentMessage?.message) {
+            m = m.deviceSentMessage.message;
+          } else if (m?.ephemeralMessage?.message) {
+            m = m.ephemeralMessage.message;
+          } else if (m?.viewOnceMessage?.message) {
+            m = m.viewOnceMessage.message;
+          } else if (m?.viewOnceMessageV2?.message) {
+            m = m.viewOnceMessageV2.message;
+          } else if (m?.documentWithCaptionMessage?.message) {
+            m = m.documentWithCaptionMessage.message;
+          } else if (m?.editedMessage?.message?.protocolMessage?.editedMessage) {
+            m = m.editedMessage.message.protocolMessage.editedMessage;
+          } else {
+            break;
+          }
+        }
+
+        if (!textCandidate && m) {
+          if (typeof m.conversation === 'string' && m.conversation.trim()) {
+            textCandidate = m.conversation.trim();
+          } else if (typeof m.extendedTextMessage?.text === 'string' && m.extendedTextMessage.text.trim()) {
+            textCandidate = m.extendedTextMessage.text.trim();
+          } else if (typeof m.imageMessage?.caption === 'string' && m.imageMessage.caption.trim()) {
+            textCandidate = m.imageMessage.caption.trim();
+            typeCandidate = 'image';
+          } else if (typeof m.videoMessage?.caption === 'string' && m.videoMessage.caption.trim()) {
+            textCandidate = m.videoMessage.caption.trim();
+            typeCandidate = 'video';
+          } else if (typeof m.documentMessage?.caption === 'string' && m.documentMessage.caption.trim()) {
+            textCandidate = m.documentMessage.caption.trim();
+            typeCandidate = 'document';
+          } else if (typeof m.templateButtonReplyMessage?.selectedDisplayText === 'string') {
+            textCandidate = m.templateButtonReplyMessage.selectedDisplayText.trim();
+          } else if (typeof m.buttonsResponseMessage?.selectedDisplayText === 'string') {
+            textCandidate = m.buttonsResponseMessage.selectedDisplayText.trim();
+          } else if (typeof m.listResponseMessage?.title === 'string') {
+            textCandidate = m.listResponseMessage.title.trim();
+          } else if (typeof m.interactiveResponseMessage?.body?.text === 'string') {
+            textCandidate = m.interactiveResponseMessage.body.text.trim();
+          }
+        }
+
+        return { text: textCandidate, type: typeCandidate };
+      };
+
+      const extracted = unwrapBaileysRaw(msg.rawMessage);
+      const effectiveText = extracted.text || (typeof text === 'string' ? text.trim() : '');
+      const contentType = extracted.type || (['image', 'video', 'audio', 'document'].includes(type) ? type : 'text');
 
       // If media buffer was captured by Baileys, mirror it into chat-media storage
       let mediaUrl: string | null = null;
@@ -215,6 +269,11 @@ export async function POST(req: Request) {
         }
       }
 
+      // Guard: Do not insert empty phantom text messages (e.g. protocol messages or sync markers)
+      if (!effectiveText && !mediaUrl && contentType === 'text') {
+        return NextResponse.json({ ok: true, notice: 'Ignored empty or protocol message' });
+      }
+
       // Insert message
       const { data: insertedMsg, error: insertError } = await db
         .from('messages')
@@ -222,7 +281,7 @@ export async function POST(req: Request) {
           conversation_id: conversationId,
           sender_type: senderType,
           content_type: contentType,
-          content_text: text || '',
+          content_text: effectiveText,
           media_url: mediaUrl,
           media_type: msg.media?.mimeType || null,
           message_id: messageId,
@@ -238,10 +297,11 @@ export async function POST(req: Request) {
       }
 
       // Update conversation
+      const summaryText = effectiveText || (mediaUrl ? `[${contentType}]` : null);
       await db
         .from('conversations')
         .update({
-          last_message_text: text || `[${contentType}]`,
+          ...(summaryText ? { last_message_text: summaryText } : {}),
           last_message_at: new Date().toISOString(),
           status: 'open',
           ...(senderType === 'customer' ? { unread_count: 1 } : {}),

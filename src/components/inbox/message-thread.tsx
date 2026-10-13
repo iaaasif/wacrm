@@ -927,9 +927,15 @@ export function MessageThread({
           </div>
           <div className="min-w-0">
             <h2 className="truncate text-sm font-semibold text-foreground">{displayName}</h2>
-            <p className="truncate text-xs text-muted-foreground">
-              {contactHandle(contact)}
-            </p>
+            {contact.name && contact.name.trim() !== contactHandle(contact) ? (
+              <p className="truncate text-xs text-muted-foreground">
+                {contactHandle(contact)}
+              </p>
+            ) : contact.company ? (
+              <p className="truncate text-xs text-muted-foreground">
+                {contact.company}
+              </p>
+            ) : null}
           </div>
           {/* Session timer badge (Meta Cloud API only) */}
           {!isBaileys && sessionInfo.remaining && (
