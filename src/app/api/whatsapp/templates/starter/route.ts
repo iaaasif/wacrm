@@ -55,7 +55,7 @@ export async function POST(request: Request) {
         buttons: template.buttons ?? null,
         sample_values: template.sample_values ?? null,
         status: 'APPROVED',
-        meta_template_id: `starter-${crypto.randomUUID()}`,
+        meta_template_id: `local-starter-${crypto.randomUUID()}`,
         last_submitted_at: new Date().toISOString(),
       });
 

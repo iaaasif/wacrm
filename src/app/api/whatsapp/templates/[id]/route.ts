@@ -58,6 +58,15 @@ function isDryRun(): boolean {
   )
 }
 
+function isLocalOnlyTemplate(metaTemplateId: string | null | undefined): boolean {
+  if (!metaTemplateId) return true
+  return (
+    metaTemplateId.startsWith('local-') ||
+    metaTemplateId.startsWith('starter-') ||
+    metaTemplateId.startsWith('dry-run-')
+  )
+}
+
 export async function PATCH(
   request: Request,
   context: { params: Promise<{ id: string }> },
@@ -131,7 +140,7 @@ export async function PATCH(
       )
     }
 
-    const isLocalTemplate = existing.meta_template_id?.startsWith('local-')
+    const isLocalTemplate = isLocalOnlyTemplate(existing.meta_template_id)
 
     if (!isDryRun() && !isLocalTemplate) {
       const { data: config, error: configError } = await supabase
@@ -259,34 +268,35 @@ export async function DELETE(
       return NextResponse.json({ error: t('templates.notFound') }, { status: 404 })
     }
 
-    if (
-      existing.meta_template_id &&
-      !existing.meta_template_id.startsWith('local-') &&
-      !isDryRun()
-    ) {
-      const { data: config, error: configError } = await supabase
+    const localOnly = isLocalOnlyTemplate(existing.meta_template_id)
+
+    if (!localOnly && !isDryRun()) {
+      const { data: config } = await supabase
         .from('whatsapp_config')
         .select('*')
         .eq('account_id', accountId)
-        .single()
-      if (configError || !config || !config.waba_id) {
-        return NextResponse.json(
-          { error: t('templates.notConfiguredDelete') },
-          { status: 400 },
-        )
+        .maybeSingle()
+
+      if (config?.waba_id && config?.access_token) {
+        const accessToken = decrypt(config.access_token)
+        try {
+          await deleteMessageTemplate({
+            wabaId: config.waba_id,
+            accessToken,
+            name: existing.name,
+            metaTemplateId: existing.meta_template_id,
+          })
+        } catch (e) {
+          const message = e instanceof Error ? e.message : t('templates.metaDeleteFailed')
+          // If the template was already removed on Meta or cannot be found, allow local cleanup
+          const isNotFound = /not found|does not exist|(#100)/i.test(message)
+          if (!isNotFound) {
+            return NextResponse.json({ error: message }, { status: 502 })
+          }
+        }
       }
-      const accessToken = decrypt(config.access_token)
-      try {
-        await deleteMessageTemplate({
-          wabaId: config.waba_id,
-          accessToken,
-          name: existing.name,
-          metaTemplateId: existing.meta_template_id,
-        })
-      } catch (e) {
-        const message = e instanceof Error ? e.message : t('templates.metaDeleteFailed')
-        return NextResponse.json({ error: message }, { status: 502 })
-      }
+      // If WhatsApp Meta is not configured, do not trap the admin by blocking delete;
+      // proceed directly to delete the local row from the database.
     }
 
     const { error: delErr } = await supabase

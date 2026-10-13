@@ -1206,7 +1206,10 @@ export function TemplateManager() {
           <DialogHeader>
             <DialogTitle className="text-popover-foreground">{t('deleteDialogTitle')}</DialogTitle>
             <DialogDescription className="text-muted-foreground">
-              {templateToDelete?.meta_template_id
+              {templateToDelete?.meta_template_id &&
+              !templateToDelete.meta_template_id.startsWith('local-') &&
+              !templateToDelete.meta_template_id.startsWith('starter-') &&
+              !templateToDelete.meta_template_id.startsWith('dry-run-')
                 ? t('deleteMetaDesc', { name: templateToDelete.name })
                 : t('deleteLocalDesc', { name: templateToDelete?.name || '' })}
             </DialogDescription>
