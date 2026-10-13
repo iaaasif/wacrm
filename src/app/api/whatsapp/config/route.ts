@@ -127,7 +127,7 @@ export async function GET() {
 
     const { data: config, error: configError } = await supabase
       .from('whatsapp_config')
-      .select('phone_number_id, waba_id, access_token, status, provider, baileys_status, baileys_phone, baileys_jid')
+      .select('id, phone_number_id, waba_id, access_token, status, provider, baileys_status, baileys_phone, baileys_jid')
       .eq('account_id', accountId)
       .maybeSingle()
 
