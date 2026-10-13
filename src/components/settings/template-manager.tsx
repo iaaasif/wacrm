@@ -12,7 +12,9 @@ import {
   Pencil,
   RotateCcw,
   Upload,
+  Sparkles,
 } from 'lucide-react';
+import { STARTER_TEMPLATES, type StarterTemplate } from '@/lib/whatsapp/starter-templates';
 import { createClient } from '@/lib/supabase/client';
 import {
   uploadAccountMedia,
@@ -159,6 +161,10 @@ export function TemplateManager() {
   // Resumable-Upload handle.
   const [uploadingHeader, setUploadingHeader] = useState(false);
   const headerFileRef = useRef<HTMLInputElement>(null);
+
+  // Starter templates library modal and installation
+  const [starterDialogOpen, setStarterDialogOpen] = useState(false);
+  const [installingStarters, setInstallingStarters] = useState(false);
 
   // Body variable indices — `[1, 2, 3]` for "{{1}} {{2}} {{3}}". We
   // re-run the extractor on every render to keep the sample-value rows
@@ -352,6 +358,47 @@ export function TemplateManager() {
     }
   }
 
+  async function handleInstallAllStarters() {
+    setInstallingStarters(true);
+    try {
+      const res = await fetch('/api/whatsapp/templates/starter', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to install starter templates');
+      toast.success(
+        `Added ${data.installed} starter template(s)` +
+        (data.skipped > 0 ? ` (${data.skipped} already existed)` : '')
+      );
+      if (user) await fetchTemplates(user.id);
+      setStarterDialogOpen(false);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Failed to install templates');
+    } finally {
+      setInstallingStarters(false);
+    }
+  }
+
+  function handleUseStarter(starter: StarterTemplate) {
+    setEditingId(null);
+    setForm({
+      name: starter.name,
+      category: starter.category,
+      language: starter.language || 'en_US',
+      header_format: (starter.header_type ?? 'none') as HeaderFormat,
+      header_content: starter.header_content ?? '',
+      header_media_url: '',
+      header_sample: starter.sample_values?.header?.[0] ?? '',
+      body_text: starter.body_text,
+      body_samples: starter.sample_values?.body ?? [],
+      footer_text: starter.footer_text ?? '',
+      buttons: starter.buttons ?? [],
+    });
+    setStarterDialogOpen(false);
+    setDialogOpen(true);
+  }
+
   async function confirmDelete() {
     const target = templateToDelete;
     if (!target || deletingId) return;
@@ -529,6 +576,14 @@ export function TemplateManager() {
           <div className="flex items-center gap-2">
             <Button
               variant="outline"
+              onClick={() => setStarterDialogOpen(true)}
+              className="border-primary/20 text-foreground hover:bg-primary/5"
+            >
+              <Sparkles className="size-4 text-primary" />
+              Starter Templates
+            </Button>
+            <Button
+              variant="outline"
               onClick={handleSyncFromMeta}
               disabled={syncing}
               title={t('syncTitle')}
@@ -545,12 +600,30 @@ export function TemplateManager() {
       />
 
       {templates.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-            <p className="text-muted-foreground text-sm">{t('noTemplates')}</p>
-            <p className="text-muted-foreground text-xs mt-1">
-              {t('createFirst')}
-            </p>
+        <Card className="border-dashed">
+          <CardContent className="flex flex-col items-center justify-center py-12 text-center space-y-3">
+            <div className="flex size-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+              <Sparkles className="size-6" />
+            </div>
+            <div>
+              <h4 className="font-semibold text-foreground text-base">No message templates yet</h4>
+              <p className="text-muted-foreground text-sm max-w-md mt-1">
+                Get started in seconds with our 8 curated templates for marketing promos, order confirmations, reminders, and feedback.
+              </p>
+            </div>
+            <div className="flex items-center gap-2 pt-2">
+              <Button onClick={handleInstallAllStarters} disabled={installingStarters}>
+                {installingStarters ? (
+                  <Loader2 className="mr-1.5 size-4 animate-spin" />
+                ) : (
+                  <Sparkles className="mr-1.5 size-4" />
+                )}
+                Install 8 Starter Templates
+              </Button>
+              <Button variant="outline" onClick={() => setStarterDialogOpen(true)}>
+                Browse Library
+              </Button>
+            </div>
           </CardContent>
         </Card>
       ) : (
@@ -1160,6 +1233,117 @@ export function TemplateManager() {
               ) : (
                 t('delete')
               )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Starter Templates Library Dialog */}
+      <Dialog open={starterDialogOpen} onOpenChange={setStarterDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-0">
+          <DialogHeader className="px-6 pt-6 pb-4 border-b border-border">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                  <Sparkles className="size-5" />
+                </div>
+                <div>
+                  <DialogTitle className="text-lg font-semibold">Starter Message Templates Library</DialogTitle>
+                  <DialogDescription className="text-xs text-muted-foreground mt-0.5">
+                    Pre-crafted, high-converting WhatsApp templates ready for Marketing &amp; Utility workflows.
+                  </DialogDescription>
+                </div>
+              </div>
+              <Button
+                size="sm"
+                onClick={handleInstallAllStarters}
+                disabled={installingStarters}
+                className="shrink-0"
+              >
+                {installingStarters ? (
+                  <Loader2 className="mr-1.5 size-3.5 animate-spin" />
+                ) : (
+                  <Sparkles className="mr-1.5 size-3.5" />
+                )}
+                Install All (8 Templates)
+              </Button>
+            </div>
+          </DialogHeader>
+
+          <div className="flex-1 overflow-y-auto p-6">
+            <div className="grid gap-4 md:grid-cols-2">
+              {STARTER_TEMPLATES.map((tpl) => (
+                <div
+                  key={tpl.name}
+                  className="group relative flex flex-col justify-between rounded-xl border border-border bg-card/60 p-4 transition-all hover:border-primary/40 hover:shadow-sm"
+                >
+                  <div className="space-y-2.5">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <h4 className="font-medium text-foreground text-sm">{tpl.title}</h4>
+                        <span className="font-mono text-[11px] text-muted-foreground">{tpl.name}</span>
+                      </div>
+                      <Badge
+                        className={`text-[10px] uppercase tracking-wide border ${
+                          categoryColors[tpl.category] || ''
+                        }`}
+                      >
+                        {tpl.category}
+                      </Badge>
+                    </div>
+
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                      {tpl.description}
+                    </p>
+
+                    <div className="rounded-lg border border-border/80 bg-muted/40 p-3 text-xs space-y-1.5">
+                      {tpl.header_content && (
+                        <div className="font-semibold text-foreground text-[11px]">
+                          {tpl.header_content}
+                        </div>
+                      )}
+                      <div className="text-muted-foreground whitespace-pre-wrap leading-relaxed">
+                        {tpl.body_text}
+                      </div>
+                      {tpl.footer_text && (
+                        <div className="text-[10px] text-muted-foreground/70 italic pt-1">
+                          {tpl.footer_text}
+                        </div>
+                      )}
+                    </div>
+
+                    {tpl.buttons && tpl.buttons.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 pt-1">
+                        {tpl.buttons.map((btn, idx) => (
+                          <span
+                            key={idx}
+                            className="inline-flex items-center rounded-md border border-border bg-background px-2 py-0.5 text-[10px] font-medium text-muted-foreground"
+                          >
+                            🔘 {btn.text}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="pt-4 flex items-center justify-end">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleUseStarter(tpl)}
+                      className="text-xs h-8"
+                    >
+                      Customize &amp; Use
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <DialogFooter className="px-6 py-3 border-t border-border bg-muted/20">
+            <Button variant="ghost" size="sm" onClick={() => setStarterDialogOpen(false)}>
+              Close
             </Button>
           </DialogFooter>
         </DialogContent>
