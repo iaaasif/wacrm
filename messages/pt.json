@@ -1197,7 +1197,20 @@
       "triggerKeyword": "Acionado por: {keywords}",
       "triggerFirstInbound": "Acionado pela primeira mensagem recebida de um contato",
       "triggerManual": "Acionamento manual",
-      "cloneFailedStatus": "Falha ao clonar: {status}"
+      "cloneFailedStatus": "Falha ao clonar: {status}",
+      "searchPlaceholder": "Pesquisar fluxos por nome ou palavra-chave...",
+      "filterAll": "Todos os fluxos",
+      "totalFlows": "Total de fluxos",
+      "activeFlows": "Fluxos ativos",
+      "totalRuns": "Execuções totais",
+      "viewRuns": "Execuções",
+      "duplicate": "Duplicar",
+      "duplicateSuccess": "Fluxo duplicado com sucesso.",
+      "duplicateError": "Falha ao duplicar o fluxo.",
+      "activateSuccess": "Fluxo ativado.",
+      "pauseSuccess": "Fluxo pausado.",
+      "toggleError": "Não foi possível alterar o status do fluxo.",
+      "quickTemplates": "Modelos iniciais"
     },
     "edit": {
       "notFound": "Fluxo não encontrado.",
@@ -2297,6 +2310,27 @@
       "askEmail": "Obrigado, {name}! Qual é o seu e-mail profissional?",
       "askCompany": "Quase lá — qual é o nome da sua empresa?",
       "handoffNote": "Novo lead — nome={name}, e-mail={email}, empresa={company}."
+    },
+    "real_estate_inquiry": {
+      "name": "Consultas e Agendamentos Imobiliários",
+      "description": "Capture contatos de compradores e proprietários, qualifique orçamento e agende visitas aos imóveis.",
+      "keywords": "imóvel,apartamento,terreno,visita,reserva,aluguel",
+      "welcome": "Bem-vindo à Prime Real Estate! 🏢 Como nossa equipe pode ajudar na sua busca hoje?",
+      "footer": "Selecione uma opção para continuar",
+      "buyButton": "Comprar Imóvel",
+      "visitButton": "Agendar Visita",
+      "sellButton": "Vender / Alugar",
+      "listPrompt": "Qual tipo de imóvel você procura?",
+      "listBtn": "Ver Imóveis",
+      "catResidential": "Unidades Residenciais",
+      "rowApartment": "Apartamento de Luxo",
+      "rowPenthouse": "Cobertura / Duplex",
+      "rowCommercial": "Escritório Comercial",
+      "askBudget": "Por favor, informe a localização de preferência e faixa de orçamento:",
+      "askVisit": "Qual dia e horário são mais convenientes para sua visita guiada?",
+      "buyerNote": "Lead Comprador: Interessado em {budgetLocation}. Pronto para receber plantas e valores.",
+      "visitNote": "Visita Solicitada para: {visitSchedule}. Encaminhado ao consultor imobiliário.",
+      "sellerNote": "Lead Proprietário: Deseja anunciar imóvel para venda ou locação."
     }
   },
   "LibErrors": {

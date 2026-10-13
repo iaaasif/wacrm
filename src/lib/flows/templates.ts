@@ -61,7 +61,7 @@ export interface FlowTemplate {
   name: string;
   description: string;
   /** Used by the gallery to surface a relevant icon. lucide-react name. */
-  icon: "MessageSquare" | "HelpCircle" | "UserPlus";
+  icon: "MessageSquare" | "HelpCircle" | "UserPlus" | "Building";
   trigger_type: "keyword" | "first_inbound_message" | "manual";
   trigger_config: KeywordTriggerConfig | Record<string, unknown>;
   entry_node_id: string;
@@ -298,11 +298,133 @@ const LEAD_CAPTURE: FlowTemplate = {
 };
 
 // ============================================================
+// 4. Real Estate Property & Booking Bot
+// ============================================================
+const REAL_ESTATE_INQUIRY: FlowTemplate = {
+  slug: "real_estate_inquiry",
+  name: t("real_estate_inquiry.name"),
+  description: t("real_estate_inquiry.description"),
+  icon: "Building",
+  trigger_type: "keyword",
+  trigger_config: {
+    keywords: keywords("real_estate_inquiry.keywords"),
+    match_type: "contains",
+  },
+  entry_node_id: "start",
+  nodes: [
+    {
+      node_key: "start",
+      node_type: "start",
+      config: { next_node_key: "welcome" },
+    },
+    {
+      node_key: "welcome",
+      node_type: "send_buttons",
+      config: {
+        text: t("real_estate_inquiry.welcome"),
+        footer_text: t("real_estate_inquiry.footer"),
+        buttons: [
+          {
+            reply_id: "buy",
+            title: t("real_estate_inquiry.buyButton"),
+            next_node_key: "prop_list",
+          },
+          {
+            reply_id: "visit",
+            title: t("real_estate_inquiry.visitButton"),
+            next_node_key: "ask_visit",
+          },
+          {
+            reply_id: "sell",
+            title: t("real_estate_inquiry.sellButton"),
+            next_node_key: "seller_handoff",
+          },
+        ],
+      } as SendButtonsNodeConfig,
+    },
+    {
+      node_key: "prop_list",
+      node_type: "send_list",
+      config: {
+        text: t("real_estate_inquiry.listPrompt"),
+        button_label: t("real_estate_inquiry.listBtn"),
+        sections: [
+          {
+            title: t("real_estate_inquiry.catResidential"),
+            rows: [
+              {
+                reply_id: "apt",
+                title: t("real_estate_inquiry.rowApartment"),
+                next_node_key: "ask_budget",
+              },
+              {
+                reply_id: "penthouse",
+                title: t("real_estate_inquiry.rowPenthouse"),
+                next_node_key: "ask_budget",
+              },
+              {
+                reply_id: "commercial",
+                title: t("real_estate_inquiry.rowCommercial"),
+                next_node_key: "ask_budget",
+              },
+            ],
+          },
+        ],
+      } as SendListNodeConfig,
+    },
+    {
+      node_key: "ask_budget",
+      node_type: "collect_input",
+      config: {
+        prompt_text: t("real_estate_inquiry.askBudget"),
+        var_key: "budget_location",
+        next_node_key: "buyer_handoff",
+      } as CollectInputNodeConfig,
+    },
+    {
+      node_key: "buyer_handoff",
+      node_type: "handoff",
+      config: {
+        note: t("real_estate_inquiry.buyerNote", {
+          budgetLocation: "{{vars.budget_location}}",
+        }),
+      } as HandoffNodeConfig,
+    },
+    {
+      node_key: "ask_visit",
+      node_type: "collect_input",
+      config: {
+        prompt_text: t("real_estate_inquiry.askVisit"),
+        var_key: "visit_schedule",
+        next_node_key: "visit_handoff",
+      } as CollectInputNodeConfig,
+    },
+    {
+      node_key: "visit_handoff",
+      node_type: "handoff",
+      config: {
+        note: t("real_estate_inquiry.visitNote", {
+          visitSchedule: "{{vars.visit_schedule}}",
+        }),
+      } as HandoffNodeConfig,
+    },
+    {
+      node_key: "seller_handoff",
+      node_type: "handoff",
+      config: {
+        note: t("real_estate_inquiry.sellerNote"),
+      } as HandoffNodeConfig,
+    },
+  ],
+};
+
+// ============================================================
 // Registry
 // ============================================================
 
 const TEMPLATES: Record<string, FlowTemplate> = {
   welcome_menu: WELCOME_MENU,
+  real_estate_inquiry: REAL_ESTATE_INQUIRY,
   faq_bot: FAQ_BOT,
   lead_capture: LEAD_CAPTURE,
 };

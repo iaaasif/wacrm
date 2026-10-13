@@ -1197,7 +1197,20 @@
       "triggerKeyword": "트리거 조건: {keywords}",
       "triggerFirstInbound": "연락처의 첫 수신 메시지에서 트리거됨",
       "triggerManual": "수동 트리거",
-      "cloneFailedStatus": "복제 실패: {status}"
+      "cloneFailedStatus": "복제 실패: {status}",
+      "searchPlaceholder": "플로우 이름 또는 키워드로 검색...",
+      "filterAll": "모든 플로우",
+      "totalFlows": "총 플로우",
+      "activeFlows": "활성 플로우",
+      "totalRuns": "총 실행 횟수",
+      "viewRuns": "실행 기록",
+      "duplicate": "복제",
+      "duplicateSuccess": "플로우가 성공적으로 복제되었습니다.",
+      "duplicateError": "플로우 복제에 실패했습니다.",
+      "activateSuccess": "플로우가 활성화되었습니다.",
+      "pauseSuccess": "플로우가 일시 중지되었습니다.",
+      "toggleError": "플로우 상태를 변경할 수 없습니다.",
+      "quickTemplates": "추천 템플릿"
     },
     "edit": {
       "notFound": "플로우를 찾을 수 없습니다.",
@@ -2297,6 +2310,27 @@
       "askEmail": "감사합니다, {name}님! 업무용 이메일 주소를 알려주세요.",
       "askCompany": "거의 끝났습니다 — 회사 이름이 무엇인가요?",
       "handoffNote": "신규 리드 — 이름={name}, 이메일={email}, 회사={company}."
+    },
+    "real_estate_inquiry": {
+      "name": "부동산 매물 상담 및 방문 예약",
+      "description": "매수/임대 문의를 접수하고, 희망 지역과 예산을 파악하여 모델하우스 투어를 예약합니다.",
+      "keywords": "부동산,아파트,토지,방문,예약,임대,분양",
+      "welcome": "Prime Real Estate에 오신 것을 환영합니다! 🏢 오늘 어떤 매물을 찾으시나요?",
+      "footer": "진행할 옵션을 선택해 주세요",
+      "buyButton": "매물 구매",
+      "visitButton": "방문 예약",
+      "sellButton": "매물 내놓기/임대",
+      "listPrompt": "관심 있는 매물 유형을 선택해 주세요:",
+      "listBtn": "매물 유형 보기",
+      "catResidential": "주거용 매물",
+      "rowApartment": "고급 아파트",
+      "rowPenthouse": "펜트하우스 / 복층",
+      "rowCommercial": "상가 / 오피스",
+      "askBudget": "희망하시는 지역과 예산 범위를 편하게 알려주세요:",
+      "askVisit": "모델하우스 안내 투어를 원하시는 날짜와 시간을 입력해 주세요:",
+      "buyerNote": "구매 고객 리드: 희망 조건={budgetLocation}. 도면 및 분양가 안내 필요.",
+      "visitNote": "방문 예약 요청: 일정={visitSchedule}. 전담 상담사 배정 완료.",
+      "sellerNote": "매도/임대 희망 고객: 매물 등록 및 감정 평가 필요."
     }
   },
   "LibErrors": {

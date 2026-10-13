@@ -1197,7 +1197,20 @@
       "triggerKeyword": "Triggers on: {keywords}",
       "triggerFirstInbound": "Triggers on a contact's first-ever inbound message",
       "triggerManual": "Manual trigger",
-      "cloneFailedStatus": "Clone failed: {status}"
+      "cloneFailedStatus": "Clone failed: {status}",
+      "searchPlaceholder": "Search flows by name or keyword...",
+      "filterAll": "All Flows",
+      "totalFlows": "Total Flows",
+      "activeFlows": "Active Flows",
+      "totalRuns": "Total Executions",
+      "viewRuns": "Runs",
+      "duplicate": "Duplicate",
+      "duplicateSuccess": "Flow duplicated successfully.",
+      "duplicateError": "Failed to duplicate flow.",
+      "activateSuccess": "Flow activated.",
+      "pauseSuccess": "Flow paused.",
+      "toggleError": "Could not change flow status.",
+      "quickTemplates": "Starter Templates"
     },
     "edit": {
       "notFound": "Flow not found.",
@@ -2297,6 +2310,27 @@
       "askEmail": "Thanks {name}! What's your work email?",
       "askCompany": "Almost done — what's your company name?",
       "handoffNote": "New lead — name={name}, email={email}, company={company}."
+    },
+    "real_estate_inquiry": {
+      "name": "Real Estate Property & Booking",
+      "description": "Capture buyer & seller inquiries, qualify location & budget, and schedule private model flat visits.",
+      "keywords": "property,flat,plot,apartment,visit,booking,rent",
+      "welcome": "Welcome to Prime Real Estate! 🏢 How can our team assist your property search today?",
+      "footer": "Select an option below to proceed",
+      "buyButton": "Buy Property",
+      "visitButton": "Book Site Visit",
+      "sellButton": "Sell / Rent Out",
+      "listPrompt": "What type of property are you looking for?",
+      "listBtn": "View Properties",
+      "catResidential": "Residential Units",
+      "rowApartment": "Luxury Apartment",
+      "rowPenthouse": "Duplex / Penthouse",
+      "rowCommercial": "Commercial Office",
+      "askBudget": "Please share your preferred location and approximate budget:",
+      "askVisit": "Which date and time would be most convenient for your guided site tour?",
+      "buyerNote": "Property Buyer Lead: Interested in {budgetLocation}. Ready for floorplan & pricing discussion.",
+      "visitNote": "Site Visit Requested for: {visitSchedule}. Assigned to senior property advisor.",
+      "sellerNote": "Property Seller / Landlord Lead: Wants to list property for sale or rent."
     }
   },
   "LibErrors": {

@@ -1197,7 +1197,20 @@
       "triggerKeyword": "Se activa con: {keywords}",
       "triggerFirstInbound": "Se activa con el primer mensaje entrante de un contacto",
       "triggerManual": "Activación manual",
-      "cloneFailedStatus": "Error al clonar: {status}"
+      "cloneFailedStatus": "Error al clonar: {status}",
+      "searchPlaceholder": "Buscar flujos por nombre o palabra clave...",
+      "filterAll": "Todos los flujos",
+      "totalFlows": "Total de flujos",
+      "activeFlows": "Flujos activos",
+      "totalRuns": "Ejecuciones totales",
+      "viewRuns": "Ejecuciones",
+      "duplicate": "Duplicar",
+      "duplicateSuccess": "Flujo duplicado con éxito.",
+      "duplicateError": "No se pudo duplicar el flujo.",
+      "activateSuccess": "Flujo activado.",
+      "pauseSuccess": "Flujo pausado.",
+      "toggleError": "No se pudo cambiar el estado del flujo.",
+      "quickTemplates": "Plantillas iniciales"
     },
     "edit": {
       "notFound": "Flujo no encontrado.",
@@ -2297,6 +2310,27 @@
       "askEmail": "¡Gracias, {name}! ¿Cuál es tu email de trabajo?",
       "askCompany": "Casi terminamos: ¿cómo se llama tu empresa?",
       "handoffNote": "Nuevo lead: nombre={name}, email={email}, empresa={company}."
+    },
+    "real_estate_inquiry": {
+      "name": "Consultas y Citas Inmobiliarias",
+      "description": "Capte consultas de compradores y vendedores, califique ubicación y presupuesto, y agende visitas a departamentos muestra.",
+      "keywords": "propiedad,departamento,terreno,visita,reserva,alquiler",
+      "welcome": "¡Bienvenido a Prime Real Estate! 🏢 ¿Cómo podemos ayudarle con su búsqueda hoy?",
+      "footer": "Seleccione una opción para continuar",
+      "buyButton": "Comprar Inmueble",
+      "visitButton": "Agendar Visita",
+      "sellButton": "Vender / Alquilar",
+      "listPrompt": "¿Qué tipo de propiedad está buscando?",
+      "listBtn": "Ver Propiedades",
+      "catResidential": "Unidades Residenciales",
+      "rowApartment": "Departamento de Lujo",
+      "rowPenthouse": "Dúplex / Penthouse",
+      "rowCommercial": "Oficina Comercial",
+      "askBudget": "Por favor comparta su ubicación preferida y presupuesto estimado:",
+      "askVisit": "¿Qué fecha y hora le resultan más convenientes para su visita guiada?",
+      "buyerNote": "Lead Comprador: Interesado en {budgetLocation}. Listo para propuesta y planos.",
+      "visitNote": "Visita Solicitada para: {visitSchedule}. Asignado a asesor inmobiliario.",
+      "sellerNote": "Lead Vendedor: Desea listar propiedad para venta o alquiler."
     }
   },
   "LibErrors": {
