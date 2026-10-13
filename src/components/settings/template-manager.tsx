@@ -608,7 +608,7 @@ export function TemplateManager() {
             <div>
               <h4 className="font-semibold text-foreground text-base">No message templates yet</h4>
               <p className="text-muted-foreground text-sm max-w-md mt-1">
-                Get started in seconds with our 8 curated templates for marketing promos, order confirmations, reminders, and feedback.
+                Get started in seconds with our 8 Real Estate templates for property inquiries, site tours, price drop alerts, and payment reminders.
               </p>
             </div>
             <div className="flex items-center gap-2 pt-2">
@@ -618,7 +618,7 @@ export function TemplateManager() {
                 ) : (
                   <Sparkles className="mr-1.5 size-4" />
                 )}
-                Install 8 Starter Templates
+                Install 8 Real Estate Templates
               </Button>
               <Button variant="outline" onClick={() => setStarterDialogOpen(true)}>
                 Browse Library
@@ -1252,10 +1252,10 @@ export function TemplateManager() {
                 </div>
                 <div className="min-w-0 flex-1">
                   <DialogTitle className="text-base sm:text-lg font-semibold text-foreground leading-snug">
-                    Starter Message Templates Library
+                    Real Estate Message Templates Library
                   </DialogTitle>
                   <DialogDescription className="text-xs text-muted-foreground mt-0.5 leading-normal">
-                    Pre-crafted, high-converting WhatsApp templates ready for Marketing &amp; Utility
+                    Pre-crafted WhatsApp templates for Property Inquiries, Site Visits, Launches, &amp; Installments
                   </DialogDescription>
                 </div>
               </div>
