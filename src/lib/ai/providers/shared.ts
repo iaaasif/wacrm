@@ -74,8 +74,15 @@ export async function providerHttpError(
   }
 
   const { status } = res
+  const lowerDetail = detail.toLowerCase()
+  const isKeyError =
+    status === 401 ||
+    status === 403 ||
+    lowerDetail.includes('api key') ||
+    lowerDetail.includes('api_key') ||
+    lowerDetail.includes('apikey')
   const code =
-    status === 401 || status === 403
+    isKeyError
       ? 'invalid_key'
       : status === 429
         ? 'rate_limited'

@@ -41,13 +41,55 @@ const HANDOFF_QUEUE = '__queue__';
 const PROVIDER_LABEL: Record<Exclude<AiProvider, 'openai_compatible'>, string> = {
   openai: 'OpenAI',
   anthropic: 'Anthropic (Claude)',
+  gemini: 'Google Gemini',
 };
 
 const KEY_PLACEHOLDER: Record<AiProvider, string> = {
   openai: 'sk-...',
   anthropic: 'sk-ant-...',
+  gemini: 'AIzaSy...',
   openai_compatible: 'your-api-key',
 };
+
+const MODEL_PRESETS: Record<AiProvider, { id: string; label: string; badge?: string }[]> = {
+  gemini: [
+    { id: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash', badge: 'Recommended' },
+    { id: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash' },
+    { id: 'gemini-1.5-flash', label: 'Gemini 1.5 Flash' },
+    { id: 'gemini-1.5-pro', label: 'Gemini 1.5 Pro' },
+  ],
+  openai: [
+    { id: 'gpt-5.4-mini', label: 'GPT-5.4 Mini', badge: 'Recommended' },
+    { id: 'gpt-4o-mini', label: 'GPT-4o Mini' },
+    { id: 'gpt-4o', label: 'GPT-4o' },
+  ],
+  anthropic: [
+    { id: 'claude-haiku-4-5-20251001', label: 'Haiku 4.5', badge: 'Recommended' },
+    { id: 'claude-sonnet-4-5-20250929', label: 'Sonnet 4.5' },
+  ],
+  openai_compatible: [],
+};
+
+const PROMPT_TEMPLATES = [
+  {
+    name: 'Real Estate Consultant',
+    description: 'Apartments, villas, site visits & pricing plans',
+    prompt:
+      'You are a professional Real Estate Consultant for our property agency. Answer customer questions politely and persuasively about available apartments, luxury villas, commercial plots, location highlights, and payment schedules. Encourage qualified buyers to book a site visit. If the customer requests custom pricing discounts, contracts, or speaks with frustration, hand off to a human agent.',
+  },
+  {
+    name: 'Lead Qualification',
+    description: 'Capture budget, preferred area, timeline & requirements',
+    prompt:
+      'You are a friendly lead qualification assistant. Greet the customer and discover their exact requirements: budget range, preferred location/neighborhood, property type (e.g. 2BHK, 3BHK, duplex, penthouse), and intended purchase timeline. Summarize their details and offer a consultation with our senior advisor.',
+  },
+  {
+    name: 'Support & FAQ Specialist',
+    description: 'Instant answers for policies, timings & project updates',
+    prompt:
+      'You are our courteous customer service specialist. Answer inquiries about project completion timelines, developer credentials, booking procedures, office hours, and document checklists. Keep responses concise, helpful, and natural on WhatsApp.',
+  },
+];
 
 export function AiConfig() {
   const { accountId, accountRole, profileLoading } = useAuth();
@@ -134,6 +176,7 @@ export function AiConfig() {
     const isDefaultModel =
       model === AI_PROVIDER_DEFAULT_MODEL.openai ||
       model === AI_PROVIDER_DEFAULT_MODEL.anthropic ||
+      model === AI_PROVIDER_DEFAULT_MODEL.gemini ||
       model === AI_PROVIDER_DEFAULT_MODEL.openai_compatible ||
       model.trim() === '';
     if (isDefaultModel) setModel(next === 'openai_compatible' ? '' : AI_PROVIDER_DEFAULT_MODEL[next]);
@@ -288,6 +331,7 @@ export function AiConfig() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="gemini">{PROVIDER_LABEL.gemini}</SelectItem>
                     <SelectItem value="openai">{PROVIDER_LABEL.openai}</SelectItem>
                     <SelectItem value="anthropic">
                       {PROVIDER_LABEL.anthropic}
@@ -300,7 +344,10 @@ export function AiConfig() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="ai-model">{t('model')}</Label>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="ai-model">{t('model')}</Label>
+                  <span className="text-xs text-muted-foreground">e.g. {AI_PROVIDER_DEFAULT_MODEL[provider]}</span>
+                </div>
                 <Input
                   id="ai-model"
                   value={model}
@@ -308,6 +355,32 @@ export function AiConfig() {
                   placeholder={AI_PROVIDER_DEFAULT_MODEL[provider]}
                   disabled={disabled}
                 />
+                {MODEL_PRESETS[provider]?.length > 0 && (
+                  <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                    <span className="text-[11px] font-medium text-muted-foreground">Presets:</span>
+                    {MODEL_PRESETS[provider].map((p) => {
+                      const isSelected = model === p.id;
+                      return (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => setModel(p.id)}
+                          disabled={disabled}
+                          className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors ${
+                            isSelected
+                              ? 'bg-primary text-primary-foreground shadow-sm'
+                              : 'bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground'
+                          }`}
+                        >
+                          {p.label}
+                          {p.badge && (
+                            <span className="text-[10px] opacity-80">({p.badge})</span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
               {provider === 'openai_compatible' && (
@@ -419,7 +492,28 @@ export function AiConfig() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="ai-prompt">{t('businessContext')}</Label>
+              <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                <Label htmlFor="ai-prompt">{t('businessContext')}</Label>
+                <span className="text-xs text-muted-foreground">Prompt Templates:</span>
+              </div>
+              <div className="flex flex-wrap gap-1.5 pb-1">
+                {PROMPT_TEMPLATES.map((tmpl) => (
+                  <button
+                    key={tmpl.name}
+                    type="button"
+                    onClick={() => {
+                      setSystemPrompt(tmpl.prompt);
+                      toast.success(`Applied template: ${tmpl.name}`);
+                    }}
+                    disabled={disabled}
+                    className="inline-flex items-center gap-1 rounded-md border border-border bg-muted/60 px-2.5 py-1 text-xs text-muted-foreground hover:border-primary/40 hover:bg-muted hover:text-foreground transition-colors"
+                    title={tmpl.description}
+                  >
+                    <Sparkles className="h-3 w-3 text-primary" />
+                    <span>{tmpl.name}</span>
+                  </button>
+                ))}
+              </div>
               <Textarea
                 id="ai-prompt"
                 value={systemPrompt}

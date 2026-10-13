@@ -51,11 +51,17 @@ export async function GET() {
     // The keys are selected only to derive the has_* flags; neither is
     // returned to the client.
     const { api_key, embeddings_api_key, ...safe } = data
+    const provider: AiProvider =
+      safe.provider === 'openai_compatible' &&
+      safe.base_url?.includes('generativelanguage.googleapis.com')
+        ? 'gemini'
+        : safe.provider
     return NextResponse.json({
       configured: true,
       has_key: !!api_key,
       has_embeddings_key: !!embeddings_api_key,
       ...safe,
+      provider,
     })
   } catch (err) {
     return toErrorResponse(err)
@@ -82,7 +88,7 @@ export async function POST(request: Request) {
     if (!body || typeof body !== 'object') return bad(t('common.invalidRequestBody'))
 
     const provider = body.provider as AiProvider
-    if (provider !== 'openai' && provider !== 'anthropic' && provider !== 'openai_compatible') {
+    if (provider !== 'openai' && provider !== 'anthropic' && provider !== 'gemini' && provider !== 'openai_compatible') {
       return bad(t('ai.providerInvalid'))
     }
     const model = typeof body.model === 'string' ? body.model.trim() : ''
@@ -240,11 +246,35 @@ export async function POST(request: Request) {
       shared.embeddings_api_key = null
     }
 
+    interface PostgrestErrorLike {
+      code?: string
+      message?: string
+    }
+    const isConstraintViolation = (err: unknown) => {
+      const e = err as PostgrestErrorLike | null
+      return !!e && (e.code === '23514' || String(e.message).includes('ai_configs_provider_check'))
+    }
+
     if (existing) {
-      const { error: upErr } = await supabase
+      const updateData = encryptedKey ? { ...shared, api_key: encryptedKey } : shared
+      let { error: upErr } = await supabase
         .from('ai_configs')
-        .update(encryptedKey ? { ...shared, api_key: encryptedKey } : shared)
+        .update(updateData)
         .eq('account_id', accountId)
+
+      if (isConstraintViolation(upErr) && provider === 'gemini') {
+        const fallbackData = {
+          ...updateData,
+          provider: 'openai_compatible',
+          base_url: 'https://generativelanguage.googleapis.com/v1beta/openai/',
+        }
+        const fallbackRes = await supabase
+          .from('ai_configs')
+          .update(fallbackData)
+          .eq('account_id', accountId)
+        upErr = fallbackRes.error
+      }
+
       if (upErr) {
         console.error('[ai/config POST] update error:', upErr)
         return NextResponse.json(
@@ -253,12 +283,24 @@ export async function POST(request: Request) {
         )
       }
     } else {
-      const { error: insErr } = await supabase.from('ai_configs').insert({
+      const insertData = {
         account_id: accountId,
         created_by: userId,
         api_key: encryptedKey, // guaranteed non-null: rawKey required when no existing row
         ...shared,
-      })
+      }
+      let { error: insErr } = await supabase.from('ai_configs').insert(insertData)
+
+      if (isConstraintViolation(insErr) && provider === 'gemini') {
+        const fallbackData = {
+          ...insertData,
+          provider: 'openai_compatible',
+          base_url: 'https://generativelanguage.googleapis.com/v1beta/openai/',
+        }
+        const fallbackRes = await supabase.from('ai_configs').insert(fallbackData)
+        insErr = fallbackRes.error
+      }
+
       if (insErr) {
         console.error('[ai/config POST] insert error:', insErr)
         return NextResponse.json(

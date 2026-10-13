@@ -1984,6 +1984,7 @@
       "saveFailed": "저장하지 못했습니다.",
       "removeSuccess": "AI 설정이 제거되었습니다.",
       "removeFailed": "제거하지 못했습니다.",
+      "providerGemini": "Google Gemini",
       "providerOpenAiCompatible": "OpenAI 호환 API",
       "baseUrl": "기본 URL",
       "baseUrlHint": "OpenAI 호환 API의 기본 URL입니다. 예: https://api.groq.com/openai/v1. /chat/completions 경로는 직접 입력하지 않는 경우 자동으로 추가됩니다.",

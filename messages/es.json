@@ -1984,6 +1984,7 @@
       "saveFailed": "Error al guardar.",
       "removeSuccess": "Configuración de IA eliminada.",
       "removeFailed": "Error al eliminar.",
+      "providerGemini": "Google Gemini",
       "providerOpenAiCompatible": "API compatible con OpenAI",
       "baseUrl": "URL base",
       "baseUrlHint": "URL base de la API compatible con OpenAI, por ejemplo https://api.groq.com/openai/v1. /chat/completions se añade automáticamente, salvo que incluyas esa ruta.",

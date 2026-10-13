@@ -307,4 +307,43 @@ describe('generateReply — OpenAI-compatible', () => {
 
     expect(fetchMock.mock.calls[0][1].redirect).toBe('manual')
   })
+
+  it('routes to Google Gemini provider when provider is gemini', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      okResponse({
+        candidates: [
+          {
+            content: {
+              parts: [{ text: 'Gemini reply' }],
+            },
+          },
+        ],
+        usageMetadata: {
+          promptTokenCount: 10,
+          candidatesTokenCount: 5,
+          totalTokenCount: 15,
+        },
+      }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    const result = await generateReply({
+      config: config({
+        provider: 'gemini',
+        model: 'gemini-2.5-flash',
+        apiKey: 'AIzaSyTestKey',
+      }),
+      systemPrompt: 'sys',
+      messages: [{ role: 'user', content: 'Hi Gemini' }],
+    })
+
+    expect(result.text).toBe('Gemini reply')
+    expect(result.handoff).toBe(false)
+    expect(result.usage).toEqual({
+      promptTokens: 10,
+      completionTokens: 5,
+      totalTokens: 15,
+    })
+    expect(fetchMock.mock.calls[0][0]).toContain('gemini-2.5-flash:generateContent?key=AIzaSyTestKey')
+  })
 })
