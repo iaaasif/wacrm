@@ -123,7 +123,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: true });
     }
 
-    const { id: messageId, fromMe, senderPhone, remoteJid, type, text, timestamp } = msg;
+    const { id: messageId, fromMe, senderPhone, remoteJid, type, text, timestamp, pushName } = msg;
 
     // Find the active account for Baileys
     let { data: configs } = await db
@@ -147,37 +147,49 @@ export async function POST(req: Request) {
     const accountId = configs[0].account_id;
     const connectedPhone = configs[0].baileys_phone?.replace(/[^0-9]/g, '') || '';
 
-    // Remote JID format: e.g. "8801712345678@s.whatsapp.net" or "8801712345678:2@s.whatsapp.net"
-    const remotePhone = remoteJid && remoteJid.includes('@s.whatsapp.net')
-      ? remoteJid.split('@')[0].split(':')[0]
-      : null;
+    // Remote phone: extract digits from remoteJid (handles @s.whatsapp.net, @lid, etc.)
+    // or fallback to msg.remotePhone
+    const rawRemote = remoteJid ? remoteJid.split('@')[0].split(':')[0] : (msg.remotePhone || '');
+    const cleanRemotePhone = rawRemote.replace(/[^0-9]/g, '');
+    const cleanSenderPhone = (senderPhone || '').replace(/[^0-9]/g, '');
 
-    // The conversation contact is always the other party (who the chat is with):
-    // If fromMe is true, the message was sent to remotePhone.
-    // If fromMe is false, the message was received from senderPhone (or remotePhone).
-    const targetPhone = !fromMe
-      ? (senderPhone || remotePhone)
-      : (remotePhone || senderPhone);
+    // In WhatsApp 1-on-1 messaging:
+    // If fromMe is TRUE:
+    //   The user sent a message from their phone TO the contact at cleanRemotePhone.
+    //   The conversation MUST be with cleanRemotePhone!
+    //   The sender_type MUST be 'agent' (outbound message sent by us).
+    // If fromMe is FALSE:
+    //   The customer at cleanRemotePhone sent a message TO us.
+    //   The conversation MUST be with cleanRemotePhone (or cleanSenderPhone).
+    //   The sender_type MUST be 'customer' (inbound message received from customer).
+    const targetDigits = fromMe
+      ? (cleanRemotePhone || cleanSenderPhone)
+      : (cleanRemotePhone || cleanSenderPhone);
 
-    if (!targetPhone) {
+    if (!targetDigits) {
       return NextResponse.json({ ok: true, notice: 'No target phone' });
     }
 
-    // Is this a self-chat test message (user messaging their own WhatsApp number)?
-    const cleanTargetDigits = targetPhone.replace(/[^0-9]/g, '');
-    const isSelfChat = !!connectedPhone && cleanTargetDigits === connectedPhone;
-
-    // If it's a self-chat test message, treat it as 'customer' so that it surfaces
-    // as an inbound message in the inbox and unlocks the thread
-    const senderType = isSelfChat ? 'customer' : (fromMe ? 'agent' : 'customer');
+    // Outbound messages sent from phone are 'agent'; inbound messages from customer are 'customer'
+    const senderType: 'agent' | 'customer' = fromMe ? 'agent' : 'customer';
 
     // Format phone with leading '+'
-    const cleanPhone = targetPhone.startsWith('+') ? targetPhone : `+${targetPhone}`;
+    const cleanPhone = targetDigits.startsWith('+') ? targetDigits : `+${targetDigits}`;
+    const displayName = pushName || msg.senderName || msg.rawMessage?.pushName || null;
 
     try {
-      const resolved = await resolveConversationByPhone(db, accountId, cleanPhone);
+      const resolved = await resolveConversationByPhone(db, accountId, cleanPhone, displayName);
       const conversationId = resolved.conversationId;
       const contactId = resolved.contactId;
+
+      // Update contact name if display name is available and contact has no custom name yet
+      if (displayName && contactId) {
+        await db
+          .from('contacts')
+          .update({ name: displayName })
+          .eq('id', contactId)
+          .or(`name.is.null,name.eq.${targetDigits},name.eq.+${targetDigits}`);
+      }
 
       // Check if message already exists (deduplication)
       const { data: existingMsg } = await db
